@@ -46,7 +46,7 @@ int Speedometer = 0;          //this is digital read for the 6 pole wheel speed 
 
 
 float AConv = 0.00322265625;  //Volt per division for 10 bit and 3.3 V
-float DCVConv  = 18.2;        //Conversion factor between DC voltage and Teensy voltage (172 + 10 kOhm / 10 kOhm)
+float DCVConv  = 20.4842;        //Conversion factor between DC voltage and Teensy voltage (172 + 10 kOhm / 10 kOhm)
 float PhAVConv = 18.2;        //Conversion factor between phase voltage and Teensy voltage (172 + 10 kOhm / 10 kOhm)
 float PhBVConv = 18.2;        //Conversion factor between phase voltage and Teensy voltage (172 + 10 kOhm / 10 kOhm)
 float PhCVConv = 18.2;        //Conversion factor between phase voltage and Teensy voltage (172 + 10 kOhm / 10 kOhm)
@@ -142,9 +142,13 @@ int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase 
 
 int i = 0;
 
-double PhaseAI = 0;
-double PhaseBI = 0;
-double PhaseCI = 0;
+double PhaseAI = 0.0;
+double PhaseBI = 0.0;
+double PhaseCI = 0.0;
+
+double PhaseAV = 0.0;
+double PhaseBV = 0.0;
+double PhaseCV = 0.0;
 
 double PhACurr = 0.0;
 double PhBCurr = 0.0;
@@ -160,10 +164,10 @@ double CosAngle = 0.0;
 double DaxisCurrError = 0.0;
 double QaxisCurrError = 0.0;
 double RequestedCurr = 0.0;
-double KpD = 500.0; //0.18;
-double KiD = 0.0; //480.0;
-double KpQ = 500.0; //0.18;
-double KiQ = 0.0; //480.0;
+double KpD = 0.26; //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiD = 297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpQ = 0.26; //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiQ = 297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
 double TotalDaxisCurrError = 0.0;
 double TotalQaxisCurrError = 0.0;
 
@@ -180,6 +184,7 @@ double PhCVOut = 0.0;
 double DCVoltage = 0.0;
 
 int CurrOffset = 0;
+int VoltOffset = 0;
 
 
 
@@ -301,22 +306,30 @@ void loop()
 
 
   FOC();
-
+/*
   Serial.print("Phase Duty Cycles: ");
   Serial.print(DcA);
   Serial.print(", ");
   Serial.print(DcB);
   Serial.print(", ");
   Serial.print(DcC);
+  Serial.print(", Phase Voltage Set: ");
+  Serial.print(PhAVOut);
+  Serial.print(", ");
+  Serial.print(PhBVOut);
+  Serial.print(", ");
+  Serial.print(PhCVOut);
+  Serial.print(", DC Voltage: ");
+  Serial.print(DCVoltage);
   Serial.print(", Offset Angle: ");
   Serial.print(Offset_Angle);
   Serial.print(", Phase Currents: ");
-  //Serial.print(PhaseAI);
-  //Serial.print(", ");
-  //Serial.print(PhaseBI);
-  //Serial.print(", ");
-  //Serial.print(PhaseCI);
-  //Serial.print(", ");
+  Serial.print(PhaseAI);
+  Serial.print(", ");
+  Serial.print(PhaseBI);
+  Serial.print(", ");
+  Serial.print(PhaseCI);
+  Serial.print(", ");
   //Serial.print(AlphaCurr);
   //Serial.print(", ");
   //Serial.print(BetaCurr);
@@ -324,6 +337,21 @@ void loop()
   Serial.print(DaxisCurr);
   Serial.print(", ");
   Serial.println(QaxisCurr);
+*/
+  //delay(1);
+
+
+  Serial.print("value 1 ");
+  Serial.print(PhaseAI);
+  Serial.print(", ");
+  Serial.print("value 2 ");
+  Serial.print(PhaseBI);
+  Serial.print(", ");
+  Serial.print("value 3 ");
+  Serial.print(PhaseCI);
+  Serial.print(", ");
+  Serial.print("value 4 ");
+  Serial.println(CurrOffset);
 
 
 
@@ -363,9 +391,9 @@ void loop()
   //delay(50);
 
 
-/*
+
   i++;
-  if(i == 5000)
+  if(i == 1000)
   {
     Offset_Angle++;
     i = 0;
@@ -374,7 +402,7 @@ void loop()
       Offset_Angle = 0;
     }
   }
-*/
+
 
   //Advance_Angle++;
 
@@ -462,6 +490,240 @@ void loop()
 
 
 
+void ReadPhaseVoltages()  //Reading the voltages of all three phases
+{
+  //May also be able to use these voltages for back-emf, Third Harmonic Injection, and high speed rotor position estimation, can also be used to determine total power in motor
+  //uses same as ReadCurrent function where analog values are read, 
+  PhaseAV = analogRead(PhAV);
+  PhaseBV = analogRead(PhBV);
+  PhaseCV = analogRead(PhCV);
+
+  //averaged to remove noise/DC offset, 
+  VoltOffset = (PhaseAV + PhaseBV + PhaseCV) / 3; //averaging the three phases results in an offset
+
+  //each voltage has average subtracted to result in +/- from 0
+  PhaseAV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseBV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseCV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+
+  //then multiplied by conversion factor to get actual analog value in Volts
+  PhaseAV *= PhAVConv;  //converts digital phase current values into accurate current values in Amps
+  PhaseBV *= PhBVConv;  //converts digital phase current values into accurate current values in Amps
+  PhaseCV *= PhCVConv;  //converts digital phase current values into accurate current values in Amps
+}
+
+void ReadCurrent()  //Reading the current of all three phases
+{
+  PhaseAI = analogRead(PhAI); //* PhAIConv;
+  PhaseBI = analogRead(PhBI); //* PhBIConv;
+  PhaseCI = analogRead(PhCI); //* PhCIConv;
+
+/*
+  if(PhaseAI = 1023)  //unsure how to do this if common mode noise is issue, can get boolean for if current is over measurable values
+  {
+    //phase current over sense limit of ADC
+
+  }
+  if(PhaseAI = 0)
+  {
+    //phase current over sense limit of ADC
+
+  }
+  if(PhaseBI = 1023)
+  {
+    //phase current over sense limit of ADC
+
+  }
+  if(PhaseBI = 0)
+  {
+    //phase current over sense limit of ADC
+
+  }
+  if(PhaseCI = 1023)
+  {
+    //phase current over sense limit of ADC
+
+  }
+  if(PhaseCI = 0)
+  {
+    //phase current over sense limit of ADC
+
+  }
+*/
+
+  CurrOffset = (PhaseAI + PhaseBI + PhaseCI) / 3; //averaging the three phases results in an offset
+
+  PhaseAI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseBI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseCI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+
+  PhaseAI *= PhAIConv;  //converts digital phase current values into accurate current values in Amps
+  PhaseBI *= PhBIConv;  //converts digital phase current values into accurate current values in Amps
+  PhaseCI *= PhCIConv;  //converts digital phase current values into accurate current values in Amps
+
+  //this results in Phase currents with all common mode noise removed
+}
+
+void Clarke() //clarke transform, takes in phase A and Phase B current measurements and transforms into alpha beta currents
+{
+  AlphaCurr = PhaseAI;  //PhACurr, PhBCurr
+  BetaCurr = (PhaseAI + PhaseBI * 2.0) / sqrt(3.0);
+}
+
+double Radians(int Degrees) //turns integer degrees into double precision radians
+{
+  double radiantemp = Degrees * 0.01745329252;
+  return radiantemp;
+}
+
+void Park() //park transform, takes in alpha beta currents and current rotor position to calculate d and q axis currents, q axis aligns with alpha axis
+{
+  DaxisCurr = (CosAngle * AlphaCurr) + (SinAngle * BetaCurr);
+  QaxisCurr = (-1.0 * SinAngle * AlphaCurr) + (CosAngle * BetaCurr);
+  //D axis is Cos * alpha + Sin * Beta
+  //Q axis is -Sin * Alpha + Cos * Beta
+}
+
+void ErrorCorrection()  //takes in d and q axis currents and returns the error value for the PI filters
+{ //D axis current should be 0, q axis should be requested amount, swapped to estimate rotor offset angle
+  DaxisCurrError = RequestedCurr; //- DaxisCurr;
+  QaxisCurrError = 0.0; //- QaxisCurr;
+}
+
+void DCurrtoVolt()  //function is PI filter for d axis
+{
+  //TotalDaxisCurrError += DaxisCurrError;
+  DaxisVolt = RequestedCurr;      //(KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * millis());
+  //control signal = P term * error + I term * total error * total time
+  if(DaxisVolt >= 250.0)  //what should this limit be? cannot exceed DC bus voltage
+  {
+    DaxisVolt = 250.0;
+  }
+  //can include if/else statements to limit the maximum values
+}
+
+void QCurrtoVolt()  //function is PI filter for q axis
+{
+  //TotalQaxisCurrError += QaxisCurrError;
+  QaxisVolt = 0.0;                //(KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * millis());
+  //control signal = P term * error + I term * total error * total time
+  if(QaxisVolt >= 250.0)  //what should this limit be? cannot exceed DC bus voltage
+  {
+    QaxisVolt = 250.0;
+  }
+  //can include if/else statements to limit the maximum values
+}
+
+void IPark()  //inverse park transform, takes d and q command and current position of rotor to calculate alpha and beta command values
+{
+  AlphaVolt = (CosAngle * DaxisVolt) - (SinAngle * QaxisVolt);
+  BetaVolt = (SinAngle * DaxisVolt) + (CosAngle * QaxisVolt);
+  //inverse park transform is inverse of the 2x2 park matrix
+  //original matrix has a = cos, b = sin, c = -sin, d = cos
+  //inverted matrix is 1/ad-bc * [d -b; -c a] = 1/(cos*cos) - (sin*-sin) * [cos -sin; sin cos] = 1/(cos^2) + (sin^2) * [cos -sin; sin cos] = [cos -sin; sin cos]
+}
+
+void IClarke() //inverse Clarke transform, gets alpha and beta command values, transforms into PWM/duty cycles for phases
+{
+  PhAVOut = AlphaVolt;
+  PhBVOut = ((-1.0 * AlphaVolt) + (sqrt(3.0) * BetaVolt)) / 2.0;
+  PhCVOut = ((-1.0 * AlphaVolt) - (sqrt(3.0) * BetaVolt)) / 2.0;
+  //these resulting values are the actual voltage outputs, need to divide by DC voltage to determine duty cycle
+  //can also add Third Harmonic Injection for 15.5% increased speed/power, need to limit above duty cycle to between 0 and 100%
+}
+
+void Switching()
+{
+  DCVoltage = analogRead(DCV) * AConv * DCVConv;
+
+  DcA = (PhAVOut / DCVoltage) + 511;  //Is THI added here, need to fix angle from THI to be what is actually output, use alpha beta magnitudes and atan function? 
+  DcB = (PhBVOut / DCVoltage) + 511;
+  DcC = (PhCVOut / DCVoltage) + 511;
+
+  if(DcA < 383) //setting Duty Cycle limits, should stay between 0 and 1023 due to 10 bit system
+  {
+    DcA = 383;
+  }
+  if(DcB < 383)
+  {
+    DcB = 383;
+  }
+  if(DcC < 383)
+  {
+    DcC = 383;
+  }
+  if(DcA > 639)
+  {
+    DcA = 639;
+  }
+  if(DcB > 639)
+  {
+    DcB = 639;
+  }
+  if(DcC > 639)
+  {
+    DcC = 639;
+  }
+}
+
+void FOC()
+{
+  RequestedCurr = 0.001 * (analogRead(pot) - 24);     //switch back to 0.02 later for ~20 A max current
+  DCVoltage = analogRead(DCV) * AConv * DCVConv;
+  ReadCurrent();
+
+
+  if(RequestedCurr <= 0.0)
+  {
+    //pulls enable pins of each phase LOW, Turns off all FETs, blocking current except for back emf, should decelerate motor quickly
+    digitalWrite(SDPhA, LOW);
+    digitalWrite(SDPhB, LOW);
+    digitalWrite(SDPhC, LOW);
+
+    //sets PWM/Duty cycle values for each phase
+    analogWrite(PWMA, 0);
+    analogWrite(PWMB, 0);
+    analogWrite(PWMC, 0);
+
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
+
+    //delay(10);
+  }
+
+  else if(RequestedCurr > 0.0)
+  {
+    digitalWrite(SDPhA, HIGH);
+    digitalWrite(SDPhB, HIGH);
+    digitalWrite(SDPhC, HIGH);
+
+    Clarke();
+
+    SinAngle = sin(Radians(AngleCorrection(Offset_Angle)));         //Rotor_Curr_Pos() + Offset_Angle)));
+    CosAngle = cos(Radians(AngleCorrection(Offset_Angle)));         //Rotor_Curr_Pos() + Offset_Angle)));
+
+    Park();
+
+    ErrorCorrection();
+    DCurrtoVolt();
+    QCurrtoVolt();
+    IPark();
+    IClarke();
+
+    Switching();
+
+    analogWrite(PWMA, DcA);
+    analogWrite(PWMB, DcB);
+    analogWrite(PWMC, DcC);
+  }
+}
+
+//would also like to implement constant power operation, reduce phase current limit when at high speed
+//Potentially also implement field weakening control, current in q axis is reduced and current in d axis is increased while at maximum speed
+//need a better estimate of the rotor position, efficient foc requires accurate rotor position estimation
+
+
+
 
 
 void ReadHalls()  //function called every cycle, reads all Hall states and updates position, interrupts removed due to noise
@@ -471,8 +733,8 @@ void ReadHalls()  //function called every cycle, reads all Hall states and updat
   Halls[2] = digitalRead(HallC);  //reads what Hall C has switched to and stores it in array
   tempHall = HallState();         //temporary storage for current hall state
 
-  Serial.print("Halls are: ");
-  Serial.println(tempHall);
+  //Serial.print("Halls are: ");
+  //Serial.println(tempHall);
 
   if(tempHall != CurrHallState && tempHall != 7)
   {
@@ -839,181 +1101,6 @@ int AngleCorrection(int Any_Angle)  //function takes in integer angles, corrects
 
 
 
-void ReadCurrent()  //Reading the current of all three phases
-{
-  PhaseAI = (analogRead(PhAI) - 511) * PhAIConv;
-  PhaseBI = (analogRead(PhBI) - 511) * PhBIConv;
-  PhaseCI = (analogRead(PhCI) - 511) * PhCIConv;
-  Current_Correction();
-}
-
-void Current_Correction() //since we know that all currents must sum to equal 0, we can let one of the current sensors go beyond the known values and still have accurate current readings
-{
-  CurrOffset = PhaseAI + PhaseBI + PhaseCI;
-  PhaseAI -= CurrOffset;
-  PhaseBI -= CurrOffset;
-  PhaseCI -= CurrOffset;
-  //use to check current values, if any of them are below 0 or above 1023, then sum values that are between 0 and 1023, returns phase A and Phase B currents 
-//  if(PhaseAI > 1013 || PhaseAI < 10)
-//  {
-//    //correct the phase A current value with other phase currents
-//  }
-//  if(PhaseBI > 1013 || PHaseBI < 10)
-//  {
-//    //correct the phase B current value with other phase currents
-//  }
-  //enter new values for PhACurr and PhBCurr
-}
-
-
-void Clarke() //clarke transform, takes in phase A and Phase B current measurements and transforms into alpha beta currents
-{
-  AlphaCurr = PhaseAI;  //PhACurr, PhBCurr
-  BetaCurr = (PhaseAI + PhaseBI * 2.0) / sqrt(3.0);
-}
-
-double Radians(int Degrees) //turns integer degrees into double precision radians
-{
-  double radiantemp = Degrees * 0.01745329252;
-  return radiantemp;
-}
-
-void Park() //park transform, takes in alpha beta currents and current rotor position to calculate d and q axis currents, q axis aligns with alpha axis
-{
-  DaxisCurr = CosAngle * AlphaCurr + SinAngle * BetaCurr;
-  QaxisCurr = -1.0 * SinAngle * AlphaCurr + CosAngle * BetaCurr;
-  //D axis is Cos * alpha + Sin * Beta
-  //Q axis is -Sin * Alpha + Cos * Beta
-}
-
-void ErrorCorrection()  //takes in d and q axis currents and returns the error value for the PI filters
-{
-  DaxisCurrError = -1.0 * DaxisCurr;  //previously this was just * -1, added -1.0 so now error will remain a float
-  QaxisCurrError = RequestedCurr - QaxisCurr;
-}
-
-void DCurrtoVolt()  //function is PI filter for d axis
-{
-  TotalDaxisCurrError += DaxisCurrError;
-  DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * millis());
-  //control signal = P term * error + I term * total error * total time
-  if(DaxisVolt >= 1000.0)
-  {
-    DaxisVolt = 1000.0;
-  }
-  //can include if/else statements to limit the maximum values
-}
-
-void QCurrtoVolt()  //function is PI filter for q axis
-{
-  TotalQaxisCurrError += QaxisCurrError;
-  QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * millis());
-  //control signal = P term * error + I term * total error * total time
-  if(QaxisVolt >= 1000.0)
-  {
-    QaxisVolt = 1000.0;
-  }
-  //can include if/else statements to limit the maximum values
-}
-
-void IPark()  //inverse park transform, takes d and q command and current position of rotor to calculate alpha and beta command values
-{
-  AlphaVolt = CosAngle * DaxisVolt - SinAngle * QaxisVolt;
-  BetaVolt = SinAngle * DaxisVolt + SinAngle * QaxisVolt;
-  //inverse park transform is inverse of the 2x2 park matrix
-  //original matrix has a = cos, b = sin, c = -sin, d = cos
-  //inverted matrix is 1/ad-bc * [d -b; -c a] = 1/(cos*cos) - (sin*-sin) * [cos -sin; sin cos] = 1/(cos^2) + (sin^2) * [cos -sin; sin cos] = [cos -sin; sin cos]
-}
-
-void IClarke() //inverse Clarke transform, gets alpha and beta command values, transforms into PWM/duty cycles for phases
-{
-  PhAVOut = AlphaVolt;
-  PhBVOut = (-1.0 * AlphaVolt + sqrt(3) * BetaVolt) / 2.0;
-  PhCVOut = (-1.0 * AlphaVolt - sqrt(3) * BetaVolt) / 2.0;
-  //these resulting values are the actual voltage outputs, need to divide by DC voltage to determine duty cycle
-  //can also add Third Harmonic Injection for 15.5% increased speed/power, need to limit above duty cycle to between 0 and 100%
-}
-
-void Switching()
-{
-  DCVoltage = analogRead(DCV) * AConv * DCVConv;
-  DcA = (PhAVOut / DCVoltage) + 511;
-  DcB = (PhBVOut / DCVoltage) + 511;
-  DcC = (PhCVOut / DCVoltage) + 511;
-
-  if(DcA < 0)
-  {
-    DcA = 0;
-  }
-  if(DcB < 0)
-  {
-    DcB = 0;
-  }
-  if(DcC < 0)
-  {
-    DcC = 0;
-  }
-  if(DcA > 1023)
-  {
-    DcA = 1023;
-  }
-  if(DcB > 1023)
-  {
-    DcB = 1023;
-  }
-  if(DcC > 1023)
-  {
-    DcC = 1023;
-  }
-
-}
-
-void FOC()
-{
-  ReadCurrent();
-  Clarke();
-
-  SinAngle = sin(Radians(AngleCorrection(Rotor_Curr_Pos() + Offset_Angle)));
-  CosAngle = cos(Radians(AngleCorrection(Rotor_Curr_Pos() + Offset_Angle)));
-
-  Park();
-
-  RequestedCurr = 0.002 * map(analogRead(pot), 0, 1023, -24, 1000);     //switch back to 0.02 later for ~20 A max current
-
-  if(RequestedCurr <= 0)
-  {
-    //pulls enable pins of each phase LOW, Turns off all FETs, blocking current except for back emf, should decelerate motor quickly
-    digitalWrite(SDPhA, LOW);
-    digitalWrite(SDPhB, LOW);
-    digitalWrite(SDPhC, LOW);
-
-    //sets PWM/Duty cycle values for each phase
-    analogWrite(PWMA, 0);
-    analogWrite(PWMB, 0);
-    analogWrite(PWMC, 0);
-
-    TotalDaxisCurrError = 0;
-    TotalQaxisCurrError = 0;
-  }
-  else if(RequestedCurr > 0)
-  {
-    digitalWrite(SDPhA, HIGH);
-    digitalWrite(SDPhB, HIGH);
-    digitalWrite(SDPhC, HIGH);
-
-    ErrorCorrection();
-    DCurrtoVolt();
-    QCurrtoVolt();
-    IPark();
-    IClarke();
-
-    Switching();
-
-    analogWrite(PWMA, DcA);
-    analogWrite(PWMB, DcB);
-    analogWrite(PWMC, DcC);
-  }
-}
 
 
 
