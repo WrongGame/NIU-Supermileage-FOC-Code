@@ -10,6 +10,7 @@
 //should add temperature limits/sensing for both on-board temperature and motor temperature (both have probes)
 //should add wheel speed sensing to the code, has digital pin connected, put on interrupt? 
 
+#include <math.h>
 
 int LED0 = 13;                 //connects pin 13 to onboard LED
 int LED1 = 37;
@@ -141,7 +142,7 @@ int Potentiometer = 0;  //place to store the potentiometer value
 
 int Advance_Angle = 77; //angle offset in degrees to provide maximum torque (Maximum Torque Per Ampere control typically at 90 degrees for BLDC)
 int THI_Mag = 0;        //Third Harmonic Injection Magnitude variable, initializes to zero
-int Offset_Angle = 230; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
+int Offset_Angle = 250; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
 
 int PolePairs = 15;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
 unsigned long PhPhR = 0.072;  //phase to phase resistance of motor
@@ -171,10 +172,10 @@ double CosAngle = 0.0;
 double DaxisCurrError = 0.0;
 double QaxisCurrError = 0.0;
 double RequestedCurr = 0.0;
-double KpD = 0.26; //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiD = 0.000010;  //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
-double KpQ = 0.26; //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiQ = 0.000010;  //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpD = 1.5; //0.05;   //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiD = 0.00000000000000001; //0.0000000001;        //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpQ = 1.5; //0.05;   //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiQ = 0.00000000000000001; //0.0000000001;        //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
 double TotalDaxisCurrError = 0.0;
 double TotalQaxisCurrError = 0.0;
 
@@ -197,7 +198,7 @@ double SampleTimeChange = 0.0;  //this is actual time, will be 0.000xxx seconds
 unsigned long CurrSampleTime = 0;
 unsigned long LastSampleTime = 0;
 
-double CurrentFilterTimeConstant = 0.025; //setting filter to 250 us, around the minimum time for a hall state change
+double CurrentFilterTimeConstant = 0.025; //setting filter to 250 us, around the minimum time for a hall state change //0.025
 double AlphaIIRFilterVal = 0.0;
 double OneMinusAlphaFilterVal = 0.0;
 
@@ -213,7 +214,7 @@ unsigned long CurrentTimePos = 0;
 unsigned long PrevTimePos = 0;
 double PosTimeDiff = 0.0;
 
-double FilterTimePos = 0.00005;  //maximum speed results in around 4 us per electrical degree, not sure if this value is correct
+double FilterTimePos = 0.000005;  //maximum speed results in around 4 us per electrical degree, not sure if this value is correct
 double IIRPosFilterAlpha = 0.0;
 double IIRPosFilterOneMinusAlpha = 0.0;
 
@@ -221,6 +222,51 @@ double FilteredPos = 0.0;
 double LastFilteredPos = 0.0;
 
 bool OverCurrent = false;
+
+int AnalogCurrReq = 0;
+bool Activated = false;
+
+bool LowVoltage = false;
+
+double VoltSampleTime = 0.0;
+double SampleTimeChangeVolt = 0.0;
+double LastVoltSampleTime = 0.0;
+double AlphaIIRFilterValVolt = 0.0;
+double VoltageFilterTimeConstant = 0.05;
+double OneMinusAlphaFilterValVolt = 0.0;
+
+double PhaseAFilteredVolt = 0.0;
+double PhaseBFilteredVolt = 0.0;
+double PhaseCFilteredVolt = 0.0;
+
+double PhaseAPrevVoltFilter = 0.0;
+double PhaseBPrevVoltFilter = 0.0;
+double PhaseCPrevVoltFilter = 0.0;
+
+double AlphaVoltRead = 0.0;
+double BetaVoltRead = 0.0;
+
+double SensorlessAngle = 0.0;
+double BEMFVoltMag = 0.0;
+
+long NowSpeedTime = 0;
+long LastSpeedTime = 0;
+long SpeedTimeDiff = 0;
+double SpeedTimeDiffSecs = 0.0;
+double SpeedTimeDiffMins = 0.0;
+double SpeedTimeDiffHour = 0.0;
+double WheelSpeedMPH = 0.0;
+unsigned long TempTimeSpeed = 0;
+
+double OutputAngle = 0.0;
+
+double DutyCycleA = 0.0;
+double DutyCycleB = 0.0;
+double DutyCycleC = 0.0;
+
+double LastSensorlessAngle = 0.0;
+double AngleChange = 0.0;
+double AngularSpeed = 0.0;
 
 
 
@@ -230,7 +276,7 @@ void setup()
   //Making sure that all FETs are off while starting 
   MotStateOff();
 
-  Serial.begin(115200);     //initializes serial monitor to 115200 baud
+  Serial.begin(9600);     //initializes serial monitor to 115200 baud
   //Serial.println("...Initializing...");
   pinMode(LED0, OUTPUT);     //initializes the on-board led to be an ouptut
   digitalWrite(LED0, HIGH);  //sets the LED digital pin to be high/on
@@ -238,6 +284,8 @@ void setup()
   pinMode(HallA, INPUT_PULLUP); //puts the hall states to be input with an internal pullup
   pinMode(HallB, INPUT_PULLUP); //puts the hall states to be input with an internal pullup
   pinMode(HallC, INPUT_PULLUP); //puts the hall states to be input with an internal pullup
+  pinMode(Speedometer, INPUT_PULLUP); //puts the hall states to be input with an internal pullup
+
 
   pinMode(PWMA,   OUTPUT);  //initializes motor phase shutdown and phase control connections to be outputs
   pinMode(SDPhA,  OUTPUT);  //initializes motor phase shutdown and phase control connections to be outputs
@@ -322,7 +370,7 @@ void setup()
   //attachInterrupt(digitalPinToInterrupt(HallB), ReadHalls, CHANGE); //sets the halls to be an interrupt, measures any change, calls switching function every time hall changes
   //attachInterrupt(digitalPinToInterrupt(HallC), ReadHalls, CHANGE); //sets the halls to be an interrupt, measures any change, calls switching function every time hall changes
 
-  //attachInterrupt(digitalPinToInterrupt(Speedometer), WheelSpeed, High); //sets the Speedometer hall to be an interrupt, measures any change, calls switching function every time hall changes
+  //attachInterrupt(digitalPinToInterrupt(Speedometer), WheelSpeed, RISING); //sets the Speedometer hall to be an interrupt, measures any change, calls switching function every time hall changes
 
 } //end of setup section
 
@@ -382,11 +430,6 @@ void loop()
 //  Serial.print(", ");
 //  Serial.print(PhaseCI);
 //  Serial.print(", Filtered Phase Currents: ");
-//  Serial.print(PhaseAFilteredCurr);
-//  Serial.print(", ");
-//  Serial.print(PhaseBFilteredCurr);
-//  Serial.print(", ");
-//  Serial.print(PhaseCFilteredCurr);
   //Serial.print(AlphaCurr);
   //Serial.print(", ");
   //Serial.print(BetaCurr);
@@ -398,11 +441,87 @@ void loop()
   //delay(1);
 
 
-  Serial.print("value 1 ");
-  Serial.print(DaxisCurr);
-  Serial.print(", ");
-  Serial.print("value 2 ");
-  Serial.println(QaxisCurr);
+//  Serial.print(PhaseAI);
+//  Serial.print(", ");
+//  Serial.print(PhaseBI);
+//  Serial.print(", ");
+//  Serial.print(PhaseCI);
+//  Serial.print(", ");
+//  Serial.print(PhaseAFilteredCurr);
+//  Serial.print(", ");
+//  Serial.print(PhaseBFilteredCurr);
+//  Serial.print(", ");
+//  Serial.println(PhaseCFilteredCurr);
+
+
+
+//  Serial.print(DaxisVolt);
+//  Serial.print(", ");
+//  Serial.println(QaxisVolt);
+  //Serial.print(", ");
+
+  //Serial.print(TotalDaxisCurrError);
+  //Serial.print(", ");
+  //Serial.println(TotalQaxisCurrError);
+
+
+  //Serial.print("Variable1 ");
+  //Serial.print(DaxisCurr);
+  //Serial.print(", ");
+  //Serial.print("Variable2 ");
+  //Serial.print(QaxisCurr);
+  //Serial.print(SampleTimeChangeVolt);
+
+  //Serial.print(", ");
+  //Serial.println(analogRead(MotorTemp));
+
+  
+  
+  
+
+//  Serial.print(DcA);
+//  Serial.print(", ");
+//  Serial.print(DcB);
+//  Serial.print(", ");
+//  Serial.print(DcC);
+//  Serial.print(", ");
+//  Serial.print(DaxisVolt);
+//  Serial.print(", ");
+//  Serial.println(QaxisVolt);
+//  Serial.print(", ");
+//  Serial.print(atan2(BetaVolt, AlphaVolt));
+  //Serial.print(", ");
+  //Serial.println(THI_Mag);
+
+//  Serial.print(PhaseAFilteredVolt);
+//  Serial.print(", ");
+//  Serial.print(PhaseBFilteredVolt);
+//  Serial.print(", ");
+//  Serial.print(PhaseCFilteredVolt);
+//  Serial.print(", ");
+//  Serial.print(SensorlessAngle);
+//  Serial.print(", ");
+
+
+//  Serial.print(AlphaVolt);
+//  Serial.print(", ");
+//  Serial.print(BetaVolt);
+
+
+
+  Serial.println(AngularSpeed);
+  //Serial.print(", ");
+  //Serial.print(SensorlessAngle);
+  //Serial.print(", ");
+  //Serial.println(AngleCorrection(PositionFilter() + Offset_Angle));
+
+
+//  Serial.println(BEMFVoltMag);
+
+
+  //Serial.print(", ");
+  //Serial.print("Variable 3: ");
+  //Serial.println(OverCurrent);
 //  Serial.print(", ");
 //  Serial.print("value 3 ");
 //  Serial.println(PhaseCI);
@@ -450,7 +569,7 @@ void loop()
 
 /*
   i++;
-  if(i == 5000)
+  if(i == 2000)
   {
     Offset_Angle++;
     i = 0;
@@ -545,8 +664,7 @@ void loop()
 
 
 
-
-
+  //moved to read current command
 void ReadPhaseVoltages()  //Reading the voltages of all three phases
 {
   //May also be able to use these voltages for back-emf, Third Harmonic Injection, and high speed rotor position estimation, can also be used to determine total power in motor
@@ -554,6 +672,14 @@ void ReadPhaseVoltages()  //Reading the voltages of all three phases
   PhaseAV = analogRead(PhAV);
   PhaseBV = analogRead(PhBV);
   PhaseCV = analogRead(PhCV);
+
+  //Serial.print(PhaseAV);
+  //Serial.print(", ");
+  //Serial.print(PhaseBV);  //something is wrong with phase BV, I think capacitor C31 is a wrong value or not fully installed
+  //Serial.print(", ");
+  //Serial.println(PhaseCV);
+  //Serial.print(", ");
+
 
   //averaged to remove noise/DC offset, 
   VoltOffset = (PhaseAV + PhaseBV + PhaseCV) / 3; //averaging the three phases results in an offset
@@ -564,9 +690,73 @@ void ReadPhaseVoltages()  //Reading the voltages of all three phases
   PhaseCV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
 
   //then multiplied by conversion factor to get actual analog value in Volts
-  PhaseAV *= PhAVConv;  //converts digital phase current values into accurate current values in Amps
-  PhaseBV *= PhBVConv;  //converts digital phase current values into accurate current values in Amps
-  PhaseCV *= PhCVConv;  //converts digital phase current values into accurate current values in Amps
+  PhaseAV *= PhAVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+  PhaseBV *= PhBVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+  PhaseCV *= PhCVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+}
+
+
+
+  //moved to Current Filter
+void VoltageFilter()
+{
+  //intended to be low pass filter for the current measurements
+  //using IIR filter with discrete form of Vf(k) = [Tf * Vf(k-1)/(Tf+Ts)] + [Ts * V(k) / (Tf + Ts)]
+  //This is equivalent to Vf(k) = a Vf(k-1) + (1-a) V(k) with a = Tf / (Tf + Ts) 
+  //in the above equations, Tf is the time constant of the low pass filter (actual time), Ts is the actual measured time between measurements, Vf is the filtered value, V is the actual (input) value
+  //when a time in between samples is much less than the time constant, the current value is added as a very small portion of the filtered output, with most being the previous filtered output
+  VoltSampleTime = micros();
+  SampleTimeChangeVolt = VoltSampleTime - LastVoltSampleTime;
+  SampleTimeChangeVolt *= 0.000001; //conversion from microseconds to seconds
+  LastVoltSampleTime = VoltSampleTime;
+
+  AlphaIIRFilterValVolt = VoltageFilterTimeConstant / (VoltageFilterTimeConstant + SampleTimeChangeVolt); //can multiply by 1/time constant to get the frequency multiplied by the time change
+  OneMinusAlphaFilterValVolt = 1.0 - AlphaIIRFilterValVolt;
+
+  PhaseAFilteredVolt = (AlphaIIRFilterValVolt * PhaseAPrevVoltFilter) + (OneMinusAlphaFilterValVolt * PhaseAV);
+  PhaseBFilteredVolt = (AlphaIIRFilterValVolt * PhaseBPrevVoltFilter) + (OneMinusAlphaFilterValVolt * PhaseBV);
+  PhaseCFilteredVolt = (AlphaIIRFilterValVolt * PhaseCPrevVoltFilter) + (OneMinusAlphaFilterValVolt * PhaseCV);
+
+  PhaseAPrevVoltFilter = PhaseAFilteredVolt;
+  PhaseBPrevVoltFilter = PhaseBFilteredVolt;
+  PhaseCPrevVoltFilter = PhaseCFilteredVolt;
+}
+
+
+
+
+
+
+
+void ClarkeReadVolt() //clarke transform, takes in phase A and Phase B voltage measurements and transforms into alpha beta voltages
+{
+  AlphaVoltRead = ((2.0 * PhaseAFilteredVolt) - PhaseBFilteredVolt - PhaseCFilteredVolt) / 3.0; //full transform has alpha = ((2 * A) - B - C) / 3
+  BetaVoltRead = 0.57735026918962 * (PhaseBFilteredVolt - PhaseCFilteredVolt);  //full transform has beta = (0 * A) + (B/SQRT(3)) - (C/SQRT(3))
+  //true Clarke transform also has third factor which is 1/3 for all phase inputs, should be equal to 0 at all times (not equal to 0 means current leaving through wye)
+}
+  
+  
+   
+
+
+//with filtered phase voltages and currents, want to calculate a per phase impedance, this impedance should be constant (for specific requested current)
+//ideally this impedance is only a resistance
+//this will not do much at low speeds since the back emf will be low, but at higher speeds the back emf will dominate and provide a sinusoidal back emf on the q axis, driving the current to be in line due to the constant impedance
+//for sensorless control, know that all back emf voltage is in q axis (changing flux induces voltage) d axis will be equal to 0
+//need to use the alpha and beta voltages to determine what the d and q axis voltage magnitude and angle is
+//to find the angle, need to use inverse tangent of (BetaVoltRead / AlphaVoltRead), this will result in the q axis angle from the a phase, subtract 90 degrees to get the d axis rotor angle
+//Since arduino atan2 function returns a result from -Pi to Pi, this is full rotation (atan is only -Pi/2 to Pi/2)
+//can get amplitude of back emf from sqrt(AlphaVoltRead^2 + BetaVoltRead^2), if this value is greater than some voltage, then we can switch from halls to sensorless
+
+void SensorlessRotorPosition()  //determines position of rotor based on back emf voltage reads
+{
+  SensorlessAngle = 57.295779513 * atan2(BetaVoltRead, AlphaVoltRead); //should determine position of q axis from phase A in radians
+  SensorlessAngle = AngleCorrection(SensorlessAngle); //subtract 90 degrees again if this does not work //reduces angle by 90 degrees so that q axis is turned into +d axis, actual position of rotor
+}
+
+void VoltageVectorReadMagnitude() //converts alpha and beta voltages into a single voltage vector for magnitude
+{
+  BEMFVoltMag = sqrt(sq(AlphaVoltRead) + sq(BetaVoltRead));
 }
 
 void ReadCurrent()  //Reading the current of all three phases
@@ -575,33 +765,36 @@ void ReadCurrent()  //Reading the current of all three phases
   PhaseBI = analogRead(PhBI);
   PhaseCI = analogRead(PhCI);
 
+  //PhaseAV = analogRead(PhAV);
+  //PhaseBV = analogRead(PhBV);
+  //PhaseCV = analogRead(PhCV);
 
-  if(PhaseAI >= 767)  //unsure how to do this if common mode noise is issue, can get boolean for if current is over measurable values
+  if(PhaseAI >= 1000)  //unsure how to do this if common mode noise is issue, can get boolean for if current is over measurable values
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseAI <= 255)
+  else if(PhaseAI <= 23)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseBI >= 767)
+  else if(PhaseBI >= 1000)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseBI <= 255)
+  else if(PhaseBI <= 23)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseCI >= 767)
+  else if(PhaseCI >= 1000)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseCI <= 255)
+  else if(PhaseCI <= 23)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
@@ -621,6 +814,21 @@ void ReadCurrent()  //Reading the current of all three phases
   PhaseBI *= PhBIConv;  //converts digital phase current values into accurate current values in Amps
   PhaseCI *= PhCIConv;  //converts digital phase current values into accurate current values in Amps
 
+/*
+  //averaged to remove noise/DC offset, 
+  VoltOffset = (PhaseAV + PhaseBV + PhaseCV) / 3; //averaging the three phases results in an offset
+
+  //each voltage has average subtracted to result in +/- from 0
+  PhaseAV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseBV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+  PhaseCV -= VoltOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+
+  //then multiplied by conversion factor to get actual analog value in Volts
+  PhaseAV *= PhAVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+  PhaseBV *= PhBVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+  PhaseCV *= PhCVConv;  //converts digital phase voltage values into accurate voltage values in Volts
+*/
+
   //this results in Phase currents with all common mode noise removed
 }
 
@@ -633,6 +841,7 @@ void CurrentFilter()
   //when a time in between samples is much less than the time constant, the current value is added as a very small portion of the filtered output, with most being the previous filtered output
   CurrSampleTime = micros();
   SampleTimeChange = CurrSampleTime - LastSampleTime;
+  //Serial.print(SampleTimeChange); //testing to see how long a foc loop takes, 158 us is current, need to reduce (~6.8 kHz) w/ clock at 600 MHz, can do overclock
   SampleTimeChange *= 0.000001; //conversion from microseconds to seconds
   LastSampleTime = CurrSampleTime;
 
@@ -646,12 +855,23 @@ void CurrentFilter()
   PhaseAPrevCurrFilter = PhaseAFilteredCurr;
   PhaseBPrevCurrFilter = PhaseBFilteredCurr;
   PhaseCPrevCurrFilter = PhaseCFilteredCurr;
+
+/*
+  PhaseAFilteredVolt = (AlphaIIRFilterVal * PhaseAPrevVoltFilter) + (OneMinusAlphaFilterVal * PhaseAV);
+  PhaseBFilteredVolt = (AlphaIIRFilterVal * PhaseBPrevVoltFilter) + (OneMinusAlphaFilterVal * PhaseBV);
+  PhaseCFilteredVolt = (AlphaIIRFilterVal * PhaseCPrevVoltFilter) + (OneMinusAlphaFilterVal * PhaseCV);
+
+  PhaseAPrevVoltFilter = PhaseAFilteredVolt;
+  PhaseBPrevVoltFilter = PhaseBFilteredVolt;
+  PhaseCPrevVoltFilter = PhaseCFilteredVolt;
+*/
 }
 
 void Clarke() //clarke transform, takes in phase A and Phase B current measurements and transforms into alpha beta currents
 {
-  AlphaCurr = PhaseAFilteredCurr;  //PhACurr, PhBCurr
-  BetaCurr = (PhaseAFilteredCurr + (PhaseBFilteredCurr * 2.0)) / sqrt(3.0);
+  AlphaCurr = ((2.0 * PhaseAFilteredCurr) - PhaseBFilteredCurr - PhaseCFilteredCurr) / 3.0;  //full transform has alpha = ((2 * A) - B - C) / 3
+  BetaCurr = 0.57735026918962 * (PhaseBFilteredCurr - PhaseCFilteredCurr); //full transform has beta = (0 * A) + (B/SQRT(3)) - (C/SQRT(3))
+  //true Clarke transform also has third factor which is 1/3 for all phase inputs, should be equal to 0 at all times (not equal to 0 means current leaving through wye) 
 }
 
 double Radians(int Degrees) //turns integer degrees into double precision radians
@@ -677,7 +897,7 @@ void ErrorCorrection()  //takes in d and q axis currents and returns the error v
 void DCurrtoVolt()  //function is PI filter for d axis
 {
   TotalDaxisCurrError += DaxisCurrError;
-  DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * 0.000001 * micros());
+  DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * micros());  //don't forget 0.000001 later
   //DaxisVolt = 0.0;
   //control signal = P term * error + I term * total error * total time
   if(DaxisVolt >= 50.0)  //what should this limit be? cannot exceed DC bus voltage
@@ -690,7 +910,7 @@ void DCurrtoVolt()  //function is PI filter for d axis
 void QCurrtoVolt()  //function is PI filter for q axis
 {
   TotalQaxisCurrError += QaxisCurrError;
-  QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * 0.000001 * micros());
+  QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * micros());
   //QaxisVolt = RequestedCurr;
   //control signal = P term * error + I term * total error * total time
   if(QaxisVolt >= 50.0)  //what should this limit be? cannot exceed DC bus voltage
@@ -712,19 +932,44 @@ void IPark()  //inverse park transform, takes d and q command and current positi
 void IClarke() //inverse Clarke transform, gets alpha and beta command values, transforms into PWM/duty cycles for phases
 {
   PhAVOut = AlphaVolt;
-  PhBVOut = ((-1.0 * AlphaVolt) + (sqrt(3.0) * BetaVolt)) / 2.0;
-  PhCVOut = ((-1.0 * AlphaVolt) - (sqrt(3.0) * BetaVolt)) / 2.0;
+  PhBVOut = (-0.5 * AlphaVolt) + (0.86602540378443 * BetaVolt); //0.866 number is SQRT(3)/2
+  PhCVOut = (-0.5 * AlphaVolt) - (0.86602540378443 * BetaVolt);
   //these resulting values are the actual voltage outputs, need to divide by DC voltage to determine duty cycle
   //can also add Third Harmonic Injection for 15.5% increased speed/power, need to limit above duty cycle to between 0 and 100%
 }
 
+void THI() //third harmonic injection is a method to increase speed performance of a BLDC motor 
+{ //by injecting the third harmonic on the neutral voltage (same for all phases) it allows the motor to have ~15% increased speed for the same DC input voltage
+
+  //below calculates angle of output, used for Third Harmonic Injection for 15.5% speed increase
+  //atan2 returns position of q axis from phase A in radians
+  //OutputAngle = AngleCorrection(57.295779513 * atan2(BetaVolt, AlphaVolt));  //Do angle correction to put -180 to 180 degrees into 0 - 360 degrees 
+
+  //requires 1/6x magnitude of the sine output (can just be of maximum value of 504)
+  THI_Mag = cos(3.0 * atan2(BetaVolt, AlphaVolt)) / 6.0;  //this magnitude is from -1 to 1
+  //85 is 512 / 6, rounded up, which produces the proper magnitude for maximum Third harmonic injection at maximum
+}
+
+
 void Switching()
 {
   DCVoltage = analogRead(DCV) * AConv * DCVConv;
+  //THI();
 
-  DcA = (512 * PhAVOut / DCVoltage) + 511;  //Is THI added here, need to fix angle from THI to be what is actually output, use alpha beta magnitudes and atan function? 
-  DcB = (512 * PhBVOut / DCVoltage) + 511;
-  DcC = (512 * PhCVOut / DCVoltage) + 511;
+  //The phase voltages are actual voltages, dividing by the DC voltage gives the wave to make that with limits of -1 to 1
+  //THI_Mag also has limit of -1/6 to 1/6
+
+  DutyCycleA = (PhAVOut / DCVoltage); // - THI_Mag;  //597 is used as this is 512 (half of PWM precision at 1024) plus 85 (1/6 of 512 as this produces maximum voltage difference) 
+  DutyCycleB = (PhBVOut / DCVoltage); // - THI_Mag;
+  DutyCycleC = (PhCVOut / DCVoltage); // - THI_Mag;
+
+  DcA = 512 * DutyCycleA; //591 is scaling limit of THI with range of 0 - 1023, also turns double into integer instead
+  DcB = 512 * DutyCycleB;
+  DcC = 512 * DutyCycleC;
+
+  DcA += 511; //output is 0 to 1023, 511 +/- 512 covers entire range between 0 - 1023 (can unfortunately go all the way to -1, this is ok)
+  DcB += 511;
+  DcC += 511;
 
   if(DcA < 0) //setting Duty Cycle limits, should stay between 0 and 1023 due to 10 bit system
   {
@@ -738,36 +983,67 @@ void Switching()
   {
     DcC = 0;
   }
-  if(DcA > 1024)
+  if(DcA > 1023)
   {
-    DcA = 1024;
+    DcA = 1023;
   }
-  if(DcB > 1024)
+  if(DcB > 1023)
   {
-    DcB = 1024;
+    DcB = 1023;
   }
-  if(DcC > 1024)
+  if(DcC > 1023)
   {
-    DcC = 1024;
+    DcC = 1023;
   }
 }
 
+
 void FOC()
 {
-  RequestedCurr = 0.03 * (analogRead(pot) - 24);     //switch back to 0.02 later for ~20 A max current
+  Potentiometer = analogRead(pot) - 24;
+  if(Potentiometer <= 0)
+  {
+    AnalogCurrReq = 0;
+    Activated = false;
+  }
+  else if(Potentiometer > 0)
+  {
+    AnalogCurrReq = Potentiometer;
+    Activated = true;
+  }
+  RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
+
   DCVoltage = analogRead(DCV) * AConv * DCVConv;
+  if(DCVoltage <= 10.00)
+  {
+    LowVoltage = true;
+  }
+  else if(DCVoltage > 10.00)
+  {
+    LowVoltage = false;
+  }
   ReadCurrent();
   CurrentFilter();
 
-//  if(OverCurrent == true)
-//  {
-//    RequestedCurr = RequestedCurr / 2.0;
-//  }
+  ReadPhaseVoltages();  //testing sensorless control
+  VoltageFilter();
+  ClarkeReadVolt();
+  SensorlessRotorPosition();
+  VoltageVectorReadMagnitude();
 
   Clarke();
 
-  SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle)));
-  CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle)));
+  if(BEMFVoltMag <= 100.0)
+  {
+    SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle)));
+    CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle)));
+  }
+  else if(BEMFVoltMag > 100.0)
+  {
+    SinAngle = sin(Radians(SensorlessAngle));
+    CosAngle = cos(Radians(SensorlessAngle));
+  }
+  WheelSpeed();
 
   Park();
 
@@ -776,8 +1052,20 @@ void FOC()
   QCurrtoVolt();
   IPark();
   IClarke();
+  Switching();
 
-  if(RequestedCurr <= 0.0)
+  if(Activated == true && OverCurrent == false && LowVoltage == false)
+  {
+    digitalWrite(SDPhA, HIGH);
+    digitalWrite(SDPhB, HIGH);
+    digitalWrite(SDPhC, HIGH);
+
+    analogWrite(PWMA, DcA);
+    analogWrite(PWMB, DcB);
+    analogWrite(PWMC, DcC);
+  }
+
+  else //if(Activated == false || OverCurrent == true || LowVoltage == true)
   {
     //pulls enable pins of each phase LOW, Turns off all FETs, blocking current except for back emf, should decelerate motor quickly
     digitalWrite(SDPhA, LOW);
@@ -794,36 +1082,55 @@ void FOC()
 
     //delay(10);
   }
-
-  else if(RequestedCurr > 0.0)
-  {
-    digitalWrite(SDPhA, HIGH);
-    digitalWrite(SDPhB, HIGH);
-    digitalWrite(SDPhC, HIGH);
-
-    Switching();
-
-    analogWrite(PWMA, DcA);
-    analogWrite(PWMB, DcB);
-    analogWrite(PWMC, DcC);
-  }
 }
 
 
 
 
-long NowSpeedTime = 0;
-long LastSpeedTime = 0;
-long SpeedTimeDiff = 0;
-long SpeedConv = 0.595; //mph / magnet change
-//long WheelSpeed = 0;  //wheel speed in miles per hour (it's the only thing these people would want to know, for m/s just * 0.447)
+
+
+
+
+
+
+
+
+
+
+
+
 
 void WheelSpeed() //function called every time wheel speed sensor goes high, determine speed of wheel
 { //wheel has 6 magnets, called 6 times per wheel rotation, 20" diameter wheel, travels around 0.266 m/magnet, to be unable to use millis, would be traveling at 266 m/s or 595 mph
-  LastSpeedTime = NowSpeedTime;
-  NowSpeedTime = millis();
-  SpeedTimeDiff = NowSpeedTime - LastSpeedTime;
+  TempTimeSpeed = micros();
+  SpeedTimeDiff = TempTimeSpeed - LastSpeedTime;
 
+  AngleChange = SensorlessAngle - LastSensorlessAngle;
+
+  AngularSpeed = 138.372 * AngleChange / SpeedTimeDiff; //this is electrical degrees per microsecond
+
+  //converting electrical degrees per microsecond to RPM 
+  //edeg/us * 1000000 us/s * 60 s/min * 60 min/hour * 1 erev/360 edeg * 1 mrev/15 erev * 1 wrev/4.78 mrev * 1 mile/1008.4 wrev 
+  //138.372 mph / edeg/us
+
+  LastSensorlessAngle = SensorlessAngle;
+  LastSpeedTime = TempTimeSpeed;
+/*
+  if(SpeedTimeDiff > 14875)  //if the time between magnets is more than 14875 microseconds, then traveling above 40 mph, likely magnet error
+  {
+    LastSpeedTime = TempTimeSpeed;
+  
+    SpeedTimeDiffSecs = SpeedTimeDiff * 0.000001;  //converting from microseconds to seconds
+    SpeedTimeDiffHour = SpeedTimeDiffSecs / 3600.0; //converted to time difference in hours
+
+    //have time, wheel radius, number of magnets per revolution
+    //6x magnets and 20" diameter wheel makes 10.472" per magnet (0.266 m/magnet, 0.0001653 miles/magnet)
+    //with distance in miles/magnet, need to divide by time change in hours
+
+    WheelSpeedMPH = 0.0001653 / SpeedTimeDiffHour;
+    Serial.print(WheelSpeedMPH);
+  }
+*/
 }
 
 
@@ -1518,13 +1825,9 @@ void MotorPos()//takes in current rotor angle and applies stator field to align 
 }
 */
 
-/*
-void THI() //third harmonic injection is a method to increase speed performance of a BLDC motor 
-{ //by injecting the third harmonic on the neutral voltage (same for all phases) it allows the motor to have ~15% increased speed for the same DC input voltage
-  //requires 1/6x magnitude of the sine output (can just be of maximum value of 504)
-  THI_Mag = 85 * Cos_Angle(3 * Angle);  //85 is 512 / 6, rounded up, which produces the proper magnitude for maximum Third harmonic injection at maximum
-}
-*/
+
+
+
 
 void TestDCV()  //function tests voltage of FETs when switching, makes sure they all still work, Would like to implement additional current testing to make sure all FETs are health at low resistance, requires passing current through motor
 {
