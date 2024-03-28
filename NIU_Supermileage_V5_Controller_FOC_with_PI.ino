@@ -173,10 +173,10 @@ double CosAngle = 0.0;
 double DaxisCurrError = 0.0;
 double QaxisCurrError = 0.0;
 double RequestedCurr = 0.0;
-double KpD = 2.8; //0.26; //2.5;  //0.130;  //1.5; //0.05;   //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiD = 0.000000002;//0.000000029781;  //0.00000001; //0.00000001; //0.0000000001;        //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
-double KpQ = 2.8; //0.26; //2.5;  //0.130;  //1.5; //0.05;   //0.18;        //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiQ = 0.000000002;//0.000000029781;  //0.00000001; //0.00000001; //0.0000000001;        //297.81; //480.0;     //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpD = 0.18; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiD = 0.0000000000625; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpQ = 0.18; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiQ = 0.0000000000625; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
 double TotalDaxisCurrError = 0.0;
 double TotalQaxisCurrError = 0.0;
 
@@ -199,7 +199,7 @@ double SampleTimeChange = 0.0;  //this is actual time, will be 0.000xxx seconds
 unsigned long CurrSampleTime = 0;
 unsigned long LastSampleTime = 0;
 
-double CurrentFilterTimeConstant = 0.00025; //setting filter to 250 us, around the minimum time for a hall state change //0.025
+double CurrentFilterTimeConstant = 0.0001; //setting filter to 250 us, around the minimum time for a hall state change //0.025
 double AlphaIIRFilterVal = 0.0;
 double OneMinusAlphaFilterVal = 0.0;
 
@@ -393,30 +393,18 @@ void loop()
   //Serial.print(micros());
   //Serial.println(" microseconds");
 
-
-
-  ReadHalls();
-
-  //while(CurrHallState == 7)
-  //{
-  //  ReadHalls();
-  //}
-
-  RotorVelEst();  //calculates the average velocity and acceleration between the last two hall interrupt events, also calls direction calculation, moved to ReadHalls()
-  Rotor_Curr_Vel(); //calculates current velocity of the rotor based on last hall velocity and acceleration
-  Rotor_Vel_RPM();  //Converts Rotor_Curr_Vel to mechanical RPM integer rather than electrical degrees per microsecond  
-
-
   FOC();  //as of 25 March 2024 12:06 PM, uses 155 us of time to calculate, need to improve, by changing the analog read averaging from 4 to 3, the time dropped to 47 us per FOC call
 
 
 
-  Serial.print(RequestedCurr);
+
+
+  //Serial.print(RequestedCurr);
   //Serial.println(BEMFVoltMag);
-  Serial.print(", ");
-  Serial.print(DaxisCurr);
-  Serial.print(", ");
-  Serial.println(QaxisCurr);
+  //Serial.print(", ");
+  //Serial.print(DaxisCurr);
+  //Serial.print(", ");
+  //Serial.println(QaxisCurr);
   //Serial.print(", ");
   //Serial.print(DaxisVolt);
   //Serial.print(", ");
@@ -424,24 +412,24 @@ void loop()
 
 
 
-/*
+
   //AngleDriven = AngleCorrection(57.295779 * atan2(BetaVolt, AlphaVolt));
-  AngleSensorless = SensorlessAngle;
-  AngleSensored = AngleCorrection(Rotor_Curr_Pos() + Offset_Angle); //PositionFilter()
-  AngleError = AngleSensorless - AngleSensored;
+  //AngleSensorless = SensorlessAngle;
+  //AngleSensored = AngleCorrection(Rotor_Curr_Pos() + Offset_Angle); //PositionFilter()
+  //AngleError = AngleSensorless - AngleSensored;
   //get error from sensorless angle to the hall positions, align both
   //Serial.print(AngleDriven);
   //Serial.print(", ");
-  Serial.print(360);  //360 and -360 are to set limits of max and min on serial plotter
-  Serial.print(", ");
+  //Serial.print(360);  //360 and -360 are to set limits of max and min on serial plotter
+  //Serial.print(", ");
   //Serial.print(-360);
   //Serial.print(", ");
-  Serial.print(AngleSensorless);
-  Serial.print(", ");
-  Serial.print(AngleSensored);
-  Serial.print(", ");
-  Serial.println(AngleError);
-*/
+  //Serial.print(AngleSensorless);
+  //Serial.print(", ");
+  //Serial.print(AngleSensored);
+  //Serial.print(", ");
+  //Serial.println(AngleError);
+
 
 
   //timer module, move time A to before whatever you want to measure and TimeB to after, will spit out time in microseconds
@@ -730,7 +718,12 @@ void loop()
 
 
 
-  //moved to read current command
+
+
+
+
+
+
 void ReadPhaseVoltages()  //Reading the voltages of all three phases, as of 25 March 2024 12:08 PM, this function takes 50 us to calculate
 {
   //May also be able to use these voltages for back-emf, Third Harmonic Injection, and high speed rotor position estimation, can also be used to determine total power in motor
@@ -748,7 +741,6 @@ void ReadPhaseVoltages()  //Reading the voltages of all three phases, as of 25 M
   //Serial.println(PhaseCV);
   //Serial.print(", ");
 
-
   //averaged to remove noise/DC offset, 
   VoltOffset = (PhaseAV + PhaseBV + PhaseCV) / 3; //averaging the three phases results in an offset
 
@@ -763,9 +755,6 @@ void ReadPhaseVoltages()  //Reading the voltages of all three phases, as of 25 M
   PhaseCV *= PhCVConv;  //converts digital phase voltage values into accurate voltage values in Volts
 }
 
-
-
-  //moved to Current Filter
 void VoltageFilter()
 {
   //intended to be low pass filter for the current measurements
@@ -790,22 +779,12 @@ void VoltageFilter()
   PhaseCPrevVoltFilter = PhaseCFilteredVolt;
 }
 
-
-
-
-
-
-
 void ClarkeReadVolt() //clarke transform, takes in phase A and Phase B voltage measurements and transforms into alpha beta voltages
 {
   AlphaVoltRead = ((2.0 * PhaseAFilteredVolt) - PhaseBFilteredVolt - PhaseCFilteredVolt) / 3.0; //full transform has alpha = ((2 * A) - B - C) / 3
   BetaVoltRead = 0.57735026918962 * (PhaseBFilteredVolt - PhaseCFilteredVolt);  //full transform has beta = (0 * A) + (B/SQRT(3)) - (C/SQRT(3))
   //true Clarke transform also has third factor which is 1/3 for all phase inputs, should be equal to 0 at all times (not equal to 0 means current leaving through wye)
 }
-  
-  
-   
-
 
 //with filtered phase voltages and currents, want to calculate a per phase impedance, this impedance should be constant (for specific requested current)
 //ideally this impedance is only a resistance
@@ -833,36 +812,44 @@ void ReadCurrent()  //Reading the current of all three phases
   PhaseBI = analogRead(PhBI);
   PhaseCI = analogRead(PhCI);
 
+  Serial.print(PhaseAI);
+  Serial.print(", ");
+  Serial.print(PhaseBI);
+  Serial.print(", ");
+  Serial.println(PhaseCI);
+
+
+
   //PhaseAV = analogRead(PhAV);
   //PhaseBV = analogRead(PhBV);
   //PhaseCV = analogRead(PhCV);
 
-  if(PhaseAI >= 1000)  //unsure how to do this if common mode noise is issue, can get boolean for if current is over measurable values
+  if(PhaseAI == 1023)  //unsure how to do this if common mode noise is issue, can get boolean for if current is over measurable values
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseAI <= 23)
+  else if(PhaseAI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseBI >= 1000)
+  else if(PhaseBI == 1023)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseBI <= 23)
+  else if(PhaseBI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseCI >= 1000)
+  else if(PhaseCI == 1023)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
   }
-  else if(PhaseCI <= 23)
+  else if(PhaseCI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
@@ -937,9 +924,17 @@ void CurrentFilter()
 
 void Clarke() //clarke transform, takes in phase A and Phase B current measurements and transforms into alpha beta currents
 {
+/*
+  //removing current filter for faster response  
+  AlphaCurr = ((2.0 * PhaseAI) - PhaseBI - PhaseCI) / 3.0;  //full transform has alpha = ((2 * A) - B - C) / 3
+  BetaCurr = 0.57735026918962 * (PhaseBI - PhaseCI); //full transform has beta = (0 * A) + (B/SQRT(3)) - (C/SQRT(3))
+  //true Clarke transform also has third factor which is 1/3 for all phase inputs, should be equal to 0 at all times (not equal to 0 means current leaving through wye) 
+*/
+
   AlphaCurr = ((2.0 * PhaseAFilteredCurr) - PhaseBFilteredCurr - PhaseCFilteredCurr) / 3.0;  //full transform has alpha = ((2 * A) - B - C) / 3
   BetaCurr = 0.57735026918962 * (PhaseBFilteredCurr - PhaseCFilteredCurr); //full transform has beta = (0 * A) + (B/SQRT(3)) - (C/SQRT(3))
   //true Clarke transform also has third factor which is 1/3 for all phase inputs, should be equal to 0 at all times (not equal to 0 means current leaving through wye) 
+
 }
 
 double Radians(int Degrees) //turns integer degrees into double precision radians
@@ -976,10 +971,10 @@ void DCurrtoVolt()  //function is PI filter for d axis
   DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * micros());  //don't forget 0.000001 later
   //DaxisVolt = 0.0;
   //control signal = P term * error + I term * total error * total time
-  //if(DaxisVolt >= 50.0)  //what should this limit be? cannot exceed DC bus voltage
-  //{
-  //  DaxisVolt = 50.0;
-  //}
+  if(DaxisVolt >= 30.0)  //what should this limit be? cannot exceed DC bus voltage, limit should be DC bus / SQRT(3)
+  {
+    DaxisVolt = 30.0;
+  }
   //can include if/else statements to limit the maximum values
 }
 
@@ -989,10 +984,10 @@ void QCurrtoVolt()  //function is PI filter for q axis
   QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * micros());
   //QaxisVolt = RequestedCurr;
   //control signal = P term * error + I term * total error * total time
-  //if(QaxisVolt >= 50.0)  //what should this limit be? cannot exceed DC bus voltage
-  //{
-  //  QaxisVolt = 50.0;
-  //}
+  if(QaxisVolt >= 30.0)  //what should this limit be? cannot exceed DC bus voltage
+  {
+    QaxisVolt = 30.0;
+  }
   //can include if/else statements to limit the maximum values
 }
 
@@ -1087,6 +1082,44 @@ void Switching()
 
 void FOC()
 {
+  ReadHalls();
+  RotorVelEst();  //calculates the average velocity and acceleration between the last two hall interrupt events, also calls direction calculation, moved to ReadHalls()
+  Rotor_Curr_Vel(); //calculates current velocity of the rotor based on last hall velocity and acceleration
+  Rotor_Vel_RPM();  //Converts Rotor_Curr_Vel to mechanical RPM integer rather than electrical degrees per microsecond  
+
+  ReadPhaseVoltages();  //testing sensorless control
+  
+  ReadCurrent();
+  CurrentFilter();
+
+  Clarke();
+  VoltageFilter();
+  ClarkeReadVolt();
+  SensorlessRotorPosition();
+  VoltageVectorReadMagnitude();
+
+  //current method is to choose wether to use sensored or sensorless based on the voltage magnitude of the back emf
+  //Is there a better way to do sensor/sensorless selection? could be averaged between the two, but this would lead to large error at 0 speed (since the BEMF always outputs a small voltage)
+  //
+
+  SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
+  CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
+
+/*
+  if(BEMFVoltMag <= 500.0)
+  {
+    SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
+    CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
+  }
+  else if(BEMFVoltMag > 500.0)
+  {
+    SinAngle = sin(Radians(SensorlessAngle + 90));
+    CosAngle = cos(Radians(SensorlessAngle + 90));
+  }
+*/
+
+  Park();
+
   Potentiometer = analogRead(pot) - 24;
 
   if(Potentiometer <= 0)
@@ -1102,7 +1135,6 @@ void FOC()
     j++;
   }
 
-
 /*
   //make a step function for testing and tuning the PI Current controllers
   //Serial plotter shows last 50 points, want the width of the pulse of the current controller to be 25 points 
@@ -1113,7 +1145,7 @@ void FOC()
   }
   else if(j >= 10 && j < 35)  //if i is 1 or higher, then the loop is run
   {
-    RequestedCurr = 15.0;  //sets the requested current to value in Amps
+    RequestedCurr = 10.0;  //sets the requested current to value in Amps
   }
   else if(j >= 35 && j < 50)
   {
@@ -1132,58 +1164,11 @@ void FOC()
   }
 */
 
-
   RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
-
-
-  DCVoltage = analogRead(DCV) * AConv * DCVConv;
-  if(DCVoltage <= 10.00)
+  if(OverCurrent == true)
   {
-    LowVoltage = true;
+    RequestedCurr = RequestedCurr / 3.0;
   }
-  else if(DCVoltage > 10.00)
-  {
-    LowVoltage = false;
-  }
-  ReadCurrent();
-  CurrentFilter();
-
-  ReadPhaseVoltages();  //testing sensorless control
-  VoltageFilter();
-  ClarkeReadVolt();
-  SensorlessRotorPosition();
-  VoltageVectorReadMagnitude();
-
-  Clarke();
-
-  //current method is to choose wether to use sensored or sensorless based on the voltage magnitude of the back emf
-  //Is there a better way to do sensor/sensorless selection? could be averaged between the two, but this would lead to large error at 0 speed (since the BEMF always outputs a small voltage)
-  //
-
-
-  SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
-  CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
-
-/*
-  if(BEMFVoltMag <= 500.0)
-  {
-    SinAngle = sin(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
-    CosAngle = cos(Radians(AngleCorrection(PositionFilter() + Offset_Angle + 90)));
-  }
-  else if(BEMFVoltMag > 500.0)
-  {
-    SinAngle = sin(Radians(SensorlessAngle + 90));
-    CosAngle = cos(Radians(SensorlessAngle + 90));
-  }
-*/
-
-
-
-
-
-  WheelSpeed();
-
-  Park();
 
   ErrorCorrection();
   DCurrtoVolt();
@@ -1192,7 +1177,16 @@ void FOC()
   IClarke();
   Switching();
 
-  if(Activated == true && OverCurrent == false && LowVoltage == false)
+  if(DCVoltage <= 20.00)
+  {
+    LowVoltage = true;
+  }
+  else if(DCVoltage > 20.00)
+  {
+    LowVoltage = false;
+  }
+
+  if(Activated == true && LowVoltage == false)  // && OverCurrent == false
   {
     digitalWrite(SDPhA, HIGH);
     digitalWrite(SDPhB, HIGH);
@@ -1220,6 +1214,8 @@ void FOC()
 
     //delay(10);
   }
+
+  WheelSpeed();
 }
 
 
