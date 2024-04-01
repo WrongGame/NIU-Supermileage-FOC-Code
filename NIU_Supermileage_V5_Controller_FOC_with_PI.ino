@@ -65,7 +65,8 @@ double KiQ = 0.0;
 int Offset_Angle = 125; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
 */
 
-//Black unbranded hobby motor from Amazon, likely this one: https://www.amazon.com/Efficience-Brushless-Sensored-Skateboard-Longboarding/dp/B07PNMYHFT/ref=sr_1_31?crid=1D3H8FKCKOL0V&dib=eyJ2IjoiMSJ9.aGiiL2SAsS47-btR03Nw4JufuhSFOISWnKEUWHlbZoftZRPYQx58loUWQxojwx1xaAjUxhkzrBvaYExRUuVz3jnEA1C4asLgGeTBlDTOnt67R_uJJzTJWGZ6hcnj4048qvo8jVeCHoBHzAG2Q47DtGnYXSqZSs53YHdtUBLLWmAYoDgTHd5IKrjO2rt2GWLFQP6WX-kilWHiLXKMxHb6FX9MlkyTvB2kwYluG8wR2TNglejVgMok5kNKa8zdYoEofYZfG83SXS4fEUOD0p2kyXKG-njAo4olI2OMRnGAQCo.AiuNrt1-6194gw-HIOIPPzb_afuE-TZCKSklTSOQh8g&dib_tag=se&keywords=brushless+dc+motor+sensored&qid=1711905125&sprefix=brushless+dc+motor+sensored%2Caps%2C154&sr=8-31
+/*
+//Black unbranded hobby motor from Amazon, likely this one: https://shorturl.at/jmuBK
 //claims that motor has 170 Kv, phase to phase resistance is around 50 mOhms, phase to phase inductance is around 10 mH
 double SpeedConst = 170.0; //this is speed constant of the motor, for Flipsky 7070 E-Board Motor the Kv is 110 RPM/V
 double PolePairs = 7.0;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
@@ -77,21 +78,21 @@ double KiD = 0.0;
 double KpQ = 0.0; 
 double KiQ = 0.0; 
 int Offset_Angle = 232; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
+*/
 
 
-/*
 //Shengyi SX1 motor with Fast wind from Grin Technologies, stated at 9.8 RPM/V (at the output, has internal gear train), with a 4.777777:1 mechanical gear ratio, means motor is 46.82 RPM/V
 double SpeedConst = 46.82; //this is speed constant of the motor, for Flipsky 7070 E-Board Motor the Kv is 110 RPM/V
-double PolePairs = 15;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
+double PolePairs = 15.0;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
 unsigned long PhPhR = 0.072;  //phase to phase resistance of motor
 int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase current with phase resistance of 0.072 Ohms results in 1.44 V + phase voltage is max, PWM needs to be adjusted for speed, need KV as well or use current sensors instead
 double BackEMFV = 0.0;
-double KpD = 0.13; //0.65; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiD = 0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
-double KpQ = 0.13; //0.65; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiQ = 0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpD = 0.85; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiD = 0.0; //0.00000000007; //0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpQ = 0.85; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiQ = 0.0; //0.00000000007; //0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
 int Offset_Angle = 125; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
-*/
+
 
 
 
@@ -184,7 +185,7 @@ float PrevAcceleration = 0.0;   //this is the average acceleration between the p
 int Potentiometer = 0;  //place to store the potentiometer value
 
 int Advance_Angle = 77; //angle offset in degrees to provide maximum torque (Maximum Torque Per Ampere control typically at 90 degrees for BLDC)
-int THI_Mag = 0;        //Third Harmonic Injection Magnitude variable, initializes to zero
+double THI_Mag = 0;        //Third Harmonic Injection Magnitude variable, initializes to zero
 
 int i = 0;
 
@@ -248,7 +249,7 @@ unsigned long CurrentTimePos = 0;
 unsigned long PrevTimePos = 0;
 double PosTimeDiff = 0.0;
 
-double FilterTimePos = 0.00005;  //maximum speed results in around 4 us per electrical degree, not sure if this value is correct
+double FilterTimePos = 0.000005;  //maximum speed results in around 4 us per electrical degree, not sure if this value is correct
 double IIRPosFilterAlpha = 0.0;
 double IIRPosFilterOneMinusAlpha = 0.0;
 
@@ -452,19 +453,29 @@ void loop()
   FOC();  //as of 25 March 2024 12:06 PM, uses 155 us of time to calculate, need to improve, by changing the analog read averaging from 4 to 3, the time dropped to 47 us per FOC call
 
 
-  Serial.print(KpD, 4);
-  Serial.print(", ");  
+
+
+  //Serial.print(RequestedCurr);
+  //Serial.print(", ");
+  //Serial.println(THI_Mag);
+  //Serial.print(", ");
+  //Serial.println(QaxisCurr);
+
+
+
+  //Serial.print(KpD, 12);
+  //Serial.print(", ");  
 
   //Serial.print(OverCurrent);
   //Serial.print(", ");  
-  //Serial.print(RequestedCurr);
+  Serial.print(RequestedCurr);
   //Serial.println(BEMFVoltMag);
-  //Serial.print(", ");
-  Serial.print(DaxisCurr);
   Serial.print(", ");
-  Serial.println(QaxisCurr);
+  Serial.print(DaxisCurr);
   //Serial.print(", ");
-  //Serial.print(DaxisVolt);
+  //Serial.print(QaxisCurr);
+  Serial.print(", ");
+  Serial.println(DaxisVolt);
   //Serial.print(", ");
   //Serial.println(QaxisVolt);
 
@@ -1096,15 +1107,19 @@ void DCurrtoVolt()  //function is PI filter for d axis
   DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * micros());  //don't forget 0.000001 later
   //DaxisVolt = 0.0;
   //control signal = P term * error + I term * total error * total time
-  if(DaxisVolt >= MaxPhVolt)  //what should this limit be? cannot exceed DC bus voltage, limit should be DC bus / SQRT(3)
-  {
-    DaxisVolt = MaxPhVolt;
-  }
+  //if(DaxisVolt >= DCVoltage)  //what should this limit be? cannot exceed DC bus voltage, limit should be DC bus / SQRT(3)
+  //{
+  //  DaxisVolt = DCVoltage;
+  //}
   //can include if/else statements to limit the maximum values
 }
 
 void QCurrtoVolt()  //function is PI filter for q axis
 {
+  //setting to just be voltage control 
+
+
+
   TotalQaxisCurrError += QaxisCurrError;
   QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * micros());
   
@@ -1117,14 +1132,14 @@ void QCurrtoVolt()  //function is PI filter for q axis
   //[(V * ele-deg * minutes) / (ele-Rev * us)] * [166,666.7] = Volts
   //Back EMF Voltage = (166666.7 * CurrentVelocity) / (PolePairs * SpeedConst) = CurrentVelocity / [0.000006 * PolePairs * SpeedConst] - this is single constant for machine
   //resulting voltage is unfortunately the DC voltage, divide by SQRT(3) to get peak phase voltage/q axis voltage instead
-  QaxisVolt += CurrentVelocity / BackEMFV;
+  //QaxisVolt += CurrentVelocity / BackEMFV;
 
   //QaxisVolt = RequestedCurr;
   //control signal = P term * error + I term * total error * total time
-  if(QaxisVolt >= MaxPhVolt)  //what should this limit be? cannot exceed DC bus voltage
-  {
-    QaxisVolt = MaxPhVolt;
-  }
+  //if(QaxisVolt >= DCVoltage)  //what should this limit be? cannot exceed DC bus voltage
+  //{
+  //  QaxisVolt = DCVoltage;
+  //}
   //can include if/else statements to limit the maximum values
 }
 
@@ -1162,7 +1177,7 @@ void THI() //third harmonic injection is a method to increase speed performance 
   //OutputAngle = AngleCorrection(57.295779513 * atan2(BetaVolt, AlphaVolt));  //Do angle correction to put -180 to 180 degrees into 0 - 360 degrees 
 
   //requires 1/6x magnitude of the sine output (can just be of maximum value of 504)
-  THI_Mag = cos(3.0 * atan2(BetaVolt, AlphaVolt)) / 6.0;  //this magnitude is from -1 to 1
+  THI_Mag = -1.0 * MaxPhVolt * sin(3.0 * atan2(BetaVolt, AlphaVolt)) / 6.0;  //this magnitude is from -1 to 1
   //85 is 512 / 6, rounded up, which produces the proper magnitude for maximum Third harmonic injection at maximum
 }
 
@@ -1177,7 +1192,7 @@ void Switching()
   //THI_Mag also has limit of -1/6 to 1/6
 
   DutyCycleA = (PhAVOut / DCVoltage); // - THI_Mag;  //597 is used as this is 512 (half of PWM precision at 1024) plus 85 (1/6 of 512 as this produces maximum voltage difference) 
-  DutyCycleB = (PhBVOut / DCVoltage); // - THI_Mag;
+  DutyCycleB = (PhBVOut / DCVoltage); // - THI_Mag; //THI needs to be also divided by DC Voltage
   DutyCycleC = (PhCVOut / DCVoltage); // - THI_Mag;
 
   DcA = 512 * DutyCycleA; //591 is scaling limit of THI with range of 0 - 1023, also turns double into integer instead
@@ -1260,8 +1275,8 @@ void FOC()
 
   Potentiometer = analogRead(pot) - 24;
 
-  KpD = Potentiometer * 0.0001;
-  KpQ = Potentiometer * 0.0001;
+  //KpD = Potentiometer * 0.001;
+  //KpQ = Potentiometer * 0.001;
 
   //KpD = 0.18; //0.26;  //0.13; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
   //KiD = 0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
@@ -1272,13 +1287,15 @@ void FOC()
 
   if(Potentiometer <= 0)
   {
+    //RequestedCurr = 0.0;
     AnalogCurrReq = 0.0;
     Activated = false;
     //j = 0;
   }
   else if(Potentiometer > 0)
   {
-    AnalogCurrReq = 10.0; //Potentiometer;
+    //RequestedCurr = 10.0;
+    AnalogCurrReq = Potentiometer;
     Activated = true;
     //j++;
   }
@@ -1312,7 +1329,7 @@ void FOC()
   }
 */
 
-  //RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
+  RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
   //if(OverCurrent == true)
   //{
   //  RequestedCurr = RequestedCurr / 3.0;
