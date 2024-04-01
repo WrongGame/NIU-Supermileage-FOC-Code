@@ -29,7 +29,7 @@ int PWMC = 9;                 //connects the digital pin 9 to the PWM input of p
 int SDPhC = 8;                  //connects the digital pin 8 to the Shutdown pin of phase C
 
 int pot = 22;                 //connects potentiometer to analog pin 23
-int f = 44000;                //setting switching frequency to 20 kHz, Motor controller V4 with IR2101 IC's only capable of up to 5 kHz, values above this hitch when FET is unable to keep up
+int f = 50000;                //setting switching frequency to 20 kHz, Motor controller V4 with IR2101 IC's only capable of up to 5 kHz, values above this hitch when FET is unable to keep up
                               //limit with Teensy 4.1 is up to 146484.38 Hz with CPU at 600 MHz
 
 int DCV = 21;
@@ -50,6 +50,48 @@ int Speedometer = 0;          //this is digital read for the 6 pole wheel speed 
 
 
 
+
+/*
+//Black Flipsky E-board motor has phase - phase inductance of ~60 uH, phase - phase resistance of 65 mOhms, has 14 poles, 7 pole pairs, claims 110 RPM/V
+double SpeedConst = 110.0; //this is speed constant of the motor, for Flipsky 7070 E-Board Motor the Kv is 110 RPM/V
+double PolePairs = 7.0;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
+unsigned long PhPhR = 0.065;  //phase to phase resistance of motor
+int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase current with phase resistance of 0.072 Ohms results in 1.44 V + phase voltage is max, PWM needs to be adjusted for speed, need KV as well or use current sensors instead
+double BackEMFV = 0.0;
+double KpD = 0.0;
+double KiD = 0.0;
+double KpQ = 0.0; 
+double KiQ = 0.0; 
+int Offset_Angle = 125; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
+*/
+
+//Black unbranded hobby motor from Amazon, likely this one: https://www.amazon.com/Efficience-Brushless-Sensored-Skateboard-Longboarding/dp/B07PNMYHFT/ref=sr_1_31?crid=1D3H8FKCKOL0V&dib=eyJ2IjoiMSJ9.aGiiL2SAsS47-btR03Nw4JufuhSFOISWnKEUWHlbZoftZRPYQx58loUWQxojwx1xaAjUxhkzrBvaYExRUuVz3jnEA1C4asLgGeTBlDTOnt67R_uJJzTJWGZ6hcnj4048qvo8jVeCHoBHzAG2Q47DtGnYXSqZSs53YHdtUBLLWmAYoDgTHd5IKrjO2rt2GWLFQP6WX-kilWHiLXKMxHb6FX9MlkyTvB2kwYluG8wR2TNglejVgMok5kNKa8zdYoEofYZfG83SXS4fEUOD0p2kyXKG-njAo4olI2OMRnGAQCo.AiuNrt1-6194gw-HIOIPPzb_afuE-TZCKSklTSOQh8g&dib_tag=se&keywords=brushless+dc+motor+sensored&qid=1711905125&sprefix=brushless+dc+motor+sensored%2Caps%2C154&sr=8-31
+//claims that motor has 170 Kv, phase to phase resistance is around 50 mOhms, phase to phase inductance is around 10 mH
+double SpeedConst = 170.0; //this is speed constant of the motor, for Flipsky 7070 E-Board Motor the Kv is 110 RPM/V
+double PolePairs = 7.0;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
+unsigned long PhPhR = 0.05;  //phase to phase resistance of motor
+int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase current with phase resistance of 0.072 Ohms results in 1.44 V + phase voltage is max, PWM needs to be adjusted for speed, need KV as well or use current sensors instead
+double BackEMFV = 0.0;
+double KpD = 0.0;
+double KiD = 0.0;
+double KpQ = 0.0; 
+double KiQ = 0.0; 
+int Offset_Angle = 232; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
+
+
+/*
+//Shengyi SX1 motor with Fast wind from Grin Technologies, stated at 9.8 RPM/V (at the output, has internal gear train), with a 4.777777:1 mechanical gear ratio, means motor is 46.82 RPM/V
+double SpeedConst = 46.82; //this is speed constant of the motor, for Flipsky 7070 E-Board Motor the Kv is 110 RPM/V
+double PolePairs = 15;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
+unsigned long PhPhR = 0.072;  //phase to phase resistance of motor
+int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase current with phase resistance of 0.072 Ohms results in 1.44 V + phase voltage is max, PWM needs to be adjusted for speed, need KV as well or use current sensors instead
+double BackEMFV = 0.0;
+double KpD = 0.13; //0.65; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiD = 0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+double KpQ = 0.13; //0.65; //0.22; //0.18; //0.26;  //0.13; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+double KiQ = 0.00000000000007;  //0.000000000069; //0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+int Offset_Angle = 125; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
+*/
 
 
 
@@ -143,11 +185,6 @@ int Potentiometer = 0;  //place to store the potentiometer value
 
 int Advance_Angle = 77; //angle offset in degrees to provide maximum torque (Maximum Torque Per Ampere control typically at 90 degrees for BLDC)
 int THI_Mag = 0;        //Third Harmonic Injection Magnitude variable, initializes to zero
-int Offset_Angle = 125; //Angle used to align the stator with phase A high = 0 degrees and rotor with transition between Hall state 1 and hall state 5 being zero degrees (with 5 -> 1 being the positive direction)
-
-int PolePairs = 15;           //Machine constant, SX1 motor has 15 pole pairs, used to calculate actual motor RPM
-unsigned long PhPhR = 0.072;  //phase to phase resistance of motor
-int MaxPhCurr = 20;           //max phase current of motor, 20 amp (peak) phase current with phase resistance of 0.072 Ohms results in 1.44 V + phase voltage is max, PWM needs to be adjusted for speed, need KV as well or use current sensors instead
 
 int i = 0;
 
@@ -173,10 +210,6 @@ double CosAngle = 0.0;
 double DaxisCurrError = 0.0;
 double QaxisCurrError = 0.0;
 double RequestedCurr = 0.0;
-double KpD = 0.18; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiD = 0.0000000000625; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
-double KpQ = 0.18; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
-double KiQ = 0.0000000000625; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
 double TotalDaxisCurrError = 0.0;
 double TotalQaxisCurrError = 0.0;
 
@@ -199,7 +232,7 @@ double SampleTimeChange = 0.0;  //this is actual time, will be 0.000xxx seconds
 unsigned long CurrSampleTime = 0;
 unsigned long LastSampleTime = 0;
 
-double CurrentFilterTimeConstant = 0.0001; //setting filter to 250 us, around the minimum time for a hall state change //0.025
+double CurrentFilterTimeConstant = 0.001; //setting filter to 250 us, around the minimum time for a hall state change //0.025
 double AlphaIIRFilterVal = 0.0;
 double OneMinusAlphaFilterVal = 0.0;
 
@@ -233,7 +266,7 @@ double VoltSampleTime = 0.0;
 double SampleTimeChangeVolt = 0.0;
 double LastVoltSampleTime = 0.0;
 double AlphaIIRFilterValVolt = 0.0;
-double VoltageFilterTimeConstant = 0.004;
+double VoltageFilterTimeConstant = 0.0001;
 double OneMinusAlphaFilterValVolt = 0.0;
 
 double PhaseAFilteredVolt = 0.0;
@@ -279,6 +312,9 @@ int j = 0;
 unsigned long TimeA = 0;
 unsigned long TimeB = 0;
 unsigned long TimeDiffAB = 0;
+double MaxPhVolt = 0.0;
+
+int DCCurr = 0.0;
 
 
 
@@ -288,7 +324,7 @@ void setup()
   //Making sure that all FETs are off while starting 
   MotStateOff();
 
-  Serial.begin(9600);     //initializes serial monitor to 115200 baud
+  Serial.begin(115200);     //initializes serial monitor to 115200 baud
   //Serial.println("...Initializing...");
   pinMode(LED0, OUTPUT);     //initializes the on-board led to be an ouptut
   digitalWrite(LED0, HIGH);  //sets the LED digital pin to be high/on
@@ -364,6 +400,8 @@ void setup()
   }
 */
 
+  BackEMFV = 0.0000103923 * PolePairs * SpeedConst; //the constant is 0.000006 * SQRT(3), the SQRT(3) is to convert the DC Voltage into the q axis voltage
+
   //setup complete, blink LED 3x 50% duty cycle
   digitalWrite(LED0, LOW);
   delay(100);
@@ -389,6 +427,24 @@ void setup()
 
 void loop()
 { 
+
+/*
+  ReadHalls();
+
+  Serial.print("Hall A: ");
+  Serial.print(Halls[0]);
+  Serial.print(", Hall B: ");
+  Serial.print(Halls[1]);
+  Serial.print(", Hall C: ");
+  Serial.print(Halls[2]);
+
+  Serial.print(", Hall state is: ");
+  Serial.println(CurrHallState);
+  delay(10);
+*/
+
+
+
   //Serial.print("Begin time: ");
   //Serial.print(micros());
   //Serial.println(" microseconds");
@@ -396,15 +452,17 @@ void loop()
   FOC();  //as of 25 March 2024 12:06 PM, uses 155 us of time to calculate, need to improve, by changing the analog read averaging from 4 to 3, the time dropped to 47 us per FOC call
 
 
+  Serial.print(KpD, 4);
+  Serial.print(", ");  
 
-
-
+  //Serial.print(OverCurrent);
+  //Serial.print(", ");  
   //Serial.print(RequestedCurr);
   //Serial.println(BEMFVoltMag);
   //Serial.print(", ");
-  //Serial.print(DaxisCurr);
-  //Serial.print(", ");
-  //Serial.println(QaxisCurr);
+  Serial.print(DaxisCurr);
+  Serial.print(", ");
+  Serial.println(QaxisCurr);
   //Serial.print(", ");
   //Serial.print(DaxisVolt);
   //Serial.print(", ");
@@ -413,10 +471,58 @@ void loop()
 
 
 
-  //AngleDriven = AngleCorrection(57.295779 * atan2(BetaVolt, AlphaVolt));
-  //AngleSensorless = SensorlessAngle;
-  //AngleSensored = AngleCorrection(Rotor_Curr_Pos() + Offset_Angle); //PositionFilter()
-  //AngleError = AngleSensorless - AngleSensored;
+
+
+
+/*
+  Potentiometer = analogRead(pot);
+
+  digitalWrite(SDPhA, HIGH);
+  digitalWrite(SDPhB, HIGH);
+  digitalWrite(SDPhC, HIGH);
+
+  analogWrite(PWMA, Potentiometer);
+  analogWrite(PWMB, Potentiometer); //analog write maximum should be 1023
+  analogWrite(PWMC, Potentiometer);
+
+  //Serial.println("DC Voltage Read");
+  //Serial.print("Phase A voltage read bits: ");
+  Serial.print(analogRead(PhAV)); //Phase A analog Voltage read
+  //Serial.print(", Phase B voltage read bits: ");
+  Serial.print(", ");
+  Serial.print(analogRead(PhBV)); //Phase B analog Voltage read
+  //Serial.print(", Phase C voltage read bits: ");
+  Serial.print(", ");
+  Serial.println(analogRead(PhCV)); //Phase C analog Voltage read
+
+  //delay(1);
+*/
+
+/*
+  Serial.print(KiD, 12);
+  Serial.print(", ");  
+*/
+
+/*
+  //Serial.print(OverCurrent);
+  //Serial.print(", ");  
+  Serial.print(RequestedCurr);
+  //Serial.println(BEMFVoltMag);
+  Serial.print(", ");
+  Serial.print(DaxisCurr);
+  Serial.print(", ");
+  Serial.println(QaxisCurr);
+  //Serial.print(", ");
+  //Serial.print(DaxisVolt);
+  //Serial.print(", ");
+  //Serial.println(QaxisVolt);
+*/
+
+/*
+  AngleDriven = AngleCorrection(57.295779 * atan2(BetaVolt, AlphaVolt));
+  AngleSensorless = SensorlessAngle;
+  AngleSensored = AngleCorrection(Rotor_Curr_Pos() + Offset_Angle); //PositionFilter()
+  AngleError = AngleSensorless - AngleSensored;
   //get error from sensorless angle to the hall positions, align both
   //Serial.print(AngleDriven);
   //Serial.print(", ");
@@ -428,11 +534,10 @@ void loop()
   //Serial.print(", ");
   //Serial.print(AngleSensored);
   //Serial.print(", ");
-  //Serial.println(AngleError);
+  Serial.println(AngleError);
+*/
 
-
-
-  //timer module, move time A to before whatever you want to measure and TimeB to after, will spit out time in microseconds
+//timer module, move time A to before whatever you want to measure and TimeB to after, will spit out time in microseconds
 /*
   TimeA = micros();
   TimeB = micros();
@@ -441,10 +546,6 @@ void loop()
   Serial.print(", ");
   Serial.println(TimeDiffAB);
 */
-
-
-
-
 
 /*
   Serial.print("Phase Duty Cycles: ");
@@ -494,7 +595,6 @@ void loop()
 */
   //delay(1);
 
-
 //  Serial.print(PhaseAI);
 //  Serial.print(", ");
 //  Serial.print(PhaseBI);
@@ -507,19 +607,9 @@ void loop()
 //  Serial.print(", ");
 //  Serial.println(PhaseCFilteredCurr);
 
-
-
-
-
-
-
-
-
-
   //Serial.print(TotalDaxisCurrError);
   //Serial.print(", ");
   //Serial.println(TotalQaxisCurrError);
-
 
   //Serial.print("Variable1 ");
   //Serial.print(DaxisCurr);
@@ -530,10 +620,6 @@ void loop()
 
   //Serial.print(", ");
   //Serial.println(analogRead(MotorTemp));
-
-  
-  
-  
 
 //  Serial.print(DcA);
 //  Serial.print(", ");
@@ -558,20 +644,13 @@ void loop()
 //  Serial.print(SensorlessAngle);
 //  Serial.print(", ");
 
-
 //  Serial.print(AlphaVolt);
 //  Serial.print(", ");
 //  Serial.print(BetaVolt);
 
-
   //Serial.println(AngularSpeed);
 
-
-
-
-
 //  Serial.println(BEMFVoltMag);
-
 
   //Serial.print(", ");
   //Serial.print("Variable 3: ");
@@ -582,9 +661,6 @@ void loop()
   //Serial.print(", ");
   //Serial.print("value 4 ");
   //Serial.println(CurrOffset);
-
-
-
 
   //Serial.print("Current Rotor Position estimation: ");
   //Serial.print(Rotor_Curr_Pos());  //Uses last known position, velocity, and acceleration to calculate the position (electrical degrees) of the rotor
@@ -620,7 +696,6 @@ void loop()
 
   //delay(50);
 
-
 /*
   i++;
   if(i == 2000)
@@ -650,7 +725,6 @@ void loop()
   //Serial.print(", ");
   //Serial.print("Variable_2: ");
   //Serial.print(CurrRPMEst); //Phase A analog Voltage read
-
 
   //Serial.print(" Rotor Est Angle is: ");
   //Serial.print(Rotor_Curr_Pos());
@@ -702,6 +776,7 @@ void loop()
 
   //Serial.print("Hall State is: ");
   //Serial.println(ReadHalls());
+  //delay(10);
 
   //Serial.println("Phase A PWM Voltage Read");
   //Serial.print("Phase A voltage read bits: ");
@@ -811,14 +886,17 @@ void ReadCurrent()  //Reading the current of all three phases
   PhaseAI = analogRead(PhAI);
   PhaseBI = analogRead(PhBI);
   PhaseCI = analogRead(PhCI);
+  DCCurr = analogRead(DCI);
 
+/*
+  Serial.print(DCCurr);
+  Serial.print(", ");
   Serial.print(PhaseAI);
   Serial.print(", ");
   Serial.print(PhaseBI);
   Serial.print(", ");
   Serial.println(PhaseCI);
-
-
+*/
 
   //PhaseAV = analogRead(PhAV);
   //PhaseBV = analogRead(PhBV);
@@ -828,31 +906,43 @@ void ReadCurrent()  //Reading the current of all three phases
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else if(PhaseAI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else if(PhaseBI == 1023)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else if(PhaseBI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else if(PhaseCI == 1023)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else if(PhaseCI == 0)
   {
     //phase current over sense limit of ADC
     OverCurrent = true;
+    TotalDaxisCurrError = 0;
+    TotalQaxisCurrError = 0;
   }
   else
   {
@@ -864,6 +954,14 @@ void ReadCurrent()  //Reading the current of all three phases
   PhaseAI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
   PhaseBI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
   PhaseCI -= CurrOffset;  //subtracting this offset from each phase results in removal of all common mode noise (DC offset and common mode noise)
+
+/*
+  Serial.print(PhaseAI);
+  Serial.print(", ");
+  Serial.print(PhaseBI);
+  Serial.print(", ");
+  Serial.println(PhaseCI);
+*/
 
   PhaseAI *= PhAIConv;  //converts digital phase current values into accurate current values in Amps
   PhaseBI *= PhBIConv;  //converts digital phase current values into accurate current values in Amps
@@ -922,6 +1020,33 @@ void CurrentFilter()
 */
 }
 
+/*
+void CurrentFilterTwo()
+{
+  //intended to be low pass filter for the current measurements
+  //using IIR filter with discrete form of Vf(k) = [Tf * Vf(k-1)/(Tf+Ts)] + [Ts * V(k) / (Tf + Ts)]
+  //This is equivalent to Vf(k) = a Vf(k-1) + (1-a) V(k) with a = Tf / (Tf + Ts) 
+  //in the above equations, Tf is the time constant of the low pass filter (actual time), Ts is the actual measured time between measurements, Vf is the filtered value, V is the actual (input) value
+  //when a time in between samples is much less than the time constant, the current value is added as a very small portion of the filtered output, with most being the previous filtered output
+  CurrSampleTime = micros();
+  SampleTimeChange = CurrSampleTime - LastSampleTime;
+  //Serial.print(SampleTimeChange); //testing to see how long a foc loop takes, 158 us is current, need to reduce (~6.8 kHz) w/ clock at 600 MHz, can do overclock
+  SampleTimeChange *= 0.000001; //conversion from microseconds to seconds
+  LastSampleTime = CurrSampleTime;
+
+  AlphaIIRFilterVal = CurrentFilterTimeConstant / (CurrentFilterTimeConstant + SampleTimeChange);
+  OneMinusAlphaFilterVal = 1.0 - AlphaIIRFilterVal;
+
+  PhaseAFilteredCurr = (AlphaIIRFilterVal * PhaseAPrevCurrFilter) + (OneMinusAlphaFilterVal * PhaseAI);
+  PhaseBFilteredCurr = (AlphaIIRFilterVal * PhaseBPrevCurrFilter) + (OneMinusAlphaFilterVal * PhaseBI);
+  PhaseCFilteredCurr = (AlphaIIRFilterVal * PhaseCPrevCurrFilter) + (OneMinusAlphaFilterVal * PhaseCI);
+
+  PhaseAPrevCurrFilter = PhaseAFilteredCurr;
+  PhaseBPrevCurrFilter = PhaseBFilteredCurr;
+  PhaseCPrevCurrFilter = PhaseCFilteredCurr;
+}
+*/
+
 void Clarke() //clarke transform, takes in phase A and Phase B current measurements and transforms into alpha beta currents
 {
 /*
@@ -961,8 +1086,8 @@ void Park() //park transform, takes in alpha beta currents and current rotor pos
 
 void ErrorCorrection()  //takes in d and q axis currents and returns the error value for the PI filters
 { //D axis current should be 0, q axis should be requested amount, swapped to estimate rotor offset angle
-  DaxisCurrError = 0.0 - DaxisCurr;
-  QaxisCurrError = RequestedCurr - QaxisCurr; //swap the 0.0 and the requested current for actual motor control
+  DaxisCurrError = RequestedCurr - DaxisCurr;
+  QaxisCurrError = 0.0 - QaxisCurr; //swap the 0.0 and the requested current for actual motor control
 }
 
 void DCurrtoVolt()  //function is PI filter for d axis
@@ -971,9 +1096,9 @@ void DCurrtoVolt()  //function is PI filter for d axis
   DaxisVolt = (KpD * DaxisCurrError) + (KiD * TotalDaxisCurrError * micros());  //don't forget 0.000001 later
   //DaxisVolt = 0.0;
   //control signal = P term * error + I term * total error * total time
-  if(DaxisVolt >= 30.0)  //what should this limit be? cannot exceed DC bus voltage, limit should be DC bus / SQRT(3)
+  if(DaxisVolt >= MaxPhVolt)  //what should this limit be? cannot exceed DC bus voltage, limit should be DC bus / SQRT(3)
   {
-    DaxisVolt = 30.0;
+    DaxisVolt = MaxPhVolt;
   }
   //can include if/else statements to limit the maximum values
 }
@@ -982,11 +1107,23 @@ void QCurrtoVolt()  //function is PI filter for q axis
 {
   TotalQaxisCurrError += QaxisCurrError;
   QaxisVolt = (KpQ * QaxisCurrError) + (KiQ * TotalQaxisCurrError * micros());
+  
+  //need to add the voltage term for speed and Kv, integral term cannot handle alone
+  //CurrentVelocity is the estimated velocity (magnitude and direction) of the speed calculated from the halls, measured in electrical degrees per microsecond
+  //SpeedConst is the speed constant of motor in use, typically measured in RPM/V (DC), this is MECHANICAL RPM, not electrical, so also need pole pairs to convert between
+  //what is conversion between these for minimal calculation? 
+  //{(ele-deg/us) / [(mech-RPM/V) * (Pole Pairs)]} = {(ele-deg/us) / (ele-RPM/V)} = (V * ele-deg) / (ele-RPM * us) = (V * ele-deg * minutes) / (ele-Rev * us)
+  //[(V * ele-deg * minutes) / (ele-Rev * us)] * [(1 ele-rev / 360 ele-deg) * (1,000,000 us / 1 second) * (60 seconds / 1 minute)] = Volts
+  //[(V * ele-deg * minutes) / (ele-Rev * us)] * [166,666.7] = Volts
+  //Back EMF Voltage = (166666.7 * CurrentVelocity) / (PolePairs * SpeedConst) = CurrentVelocity / [0.000006 * PolePairs * SpeedConst] - this is single constant for machine
+  //resulting voltage is unfortunately the DC voltage, divide by SQRT(3) to get peak phase voltage/q axis voltage instead
+  QaxisVolt += CurrentVelocity / BackEMFV;
+
   //QaxisVolt = RequestedCurr;
   //control signal = P term * error + I term * total error * total time
-  if(QaxisVolt >= 30.0)  //what should this limit be? cannot exceed DC bus voltage
+  if(QaxisVolt >= MaxPhVolt)  //what should this limit be? cannot exceed DC bus voltage
   {
-    QaxisVolt = 30.0;
+    QaxisVolt = MaxPhVolt;
   }
   //can include if/else statements to limit the maximum values
 }
@@ -1033,6 +1170,7 @@ void THI() //third harmonic injection is a method to increase speed performance 
 void Switching()
 {
   DCVoltage = analogRead(DCV) * AConv * DCVConv;
+  MaxPhVolt = DCVoltage * 0.5773503; 
   //THI();
 
   //The phase voltages are actual voltages, dividing by the DC voltage gives the wave to make that with limits of -1 to 1
@@ -1122,17 +1260,27 @@ void FOC()
 
   Potentiometer = analogRead(pot) - 24;
 
+  KpD = Potentiometer * 0.0001;
+  KpQ = Potentiometer * 0.0001;
+
+  //KpD = 0.18; //0.26;  //0.13; //0.0000000003125;   //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+  //KiD = 0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+  //KpQ = 0.18; //0.26;  //0.13; //0.0000000003125;    //2.8; //0.26 value is from Phaserunner V5 (ebikes.ca controller), 0.18 is calculated value from Thesis paper
+  //KiQ = 0.0000000000625; //0.00000000000007; //0.000008;   //0.000000002; //297.81 value is from Phaserunner V5 (ebikes.ca controller), 480.0 is calculated value from Thesis paper
+
+  //Potentiometer = analogRead(pot) - 24;
+
   if(Potentiometer <= 0)
   {
-    AnalogCurrReq = 0;
+    AnalogCurrReq = 0.0;
     Activated = false;
-    j = 0;
+    //j = 0;
   }
   else if(Potentiometer > 0)
   {
-    AnalogCurrReq = Potentiometer;
+    AnalogCurrReq = 10.0; //Potentiometer;
     Activated = true;
-    j++;
+    //j++;
   }
 
 /*
@@ -1164,11 +1312,11 @@ void FOC()
   }
 */
 
-  RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
-  if(OverCurrent == true)
-  {
-    RequestedCurr = RequestedCurr / 3.0;
-  }
+  //RequestedCurr = 0.02 * AnalogCurrReq;     //switch back to 0.02 later for ~20 A max current
+  //if(OverCurrent == true)
+  //{
+  //  RequestedCurr = RequestedCurr / 3.0;
+  //}
 
   ErrorCorrection();
   DCurrtoVolt();
@@ -1186,7 +1334,7 @@ void FOC()
     LowVoltage = false;
   }
 
-  if(Activated == true && LowVoltage == false)  // && OverCurrent == false
+  if(Activated == true && LowVoltage == false && OverCurrent == false) 
   {
     digitalWrite(SDPhA, HIGH);
     digitalWrite(SDPhB, HIGH);
@@ -1211,6 +1359,8 @@ void FOC()
 
     TotalDaxisCurrError = 0;
     TotalQaxisCurrError = 0;
+
+    //Serial.println("Low Voltage, Overcurrent, or Deactivated");
 
     //delay(10);
   }
